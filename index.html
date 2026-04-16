@@ -232,9 +232,9 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
     <Card>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',paddingBottom:14,borderBottom:'0.5px solid #e5e7eb',marginBottom:14}}>
         <div>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-            <div style={{width:32,height:32,background:'#1e3a5f',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,color:'#fff'}}>L</div>
-            <div style={{fontSize:17,fontWeight:700,letterSpacing:'.07em'}}>LEGACY UNIFORMS</div>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+            <img src="logo.png" alt="Legacy Uniforms" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{height:48,width:'auto',objectFit:'contain'}}/>
+            <div style={{width:32,height:32,background:'#1e3a5f',borderRadius:7,display:'none',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,color:'#fff'}}>L</div>
           </div>
           <div style={{fontSize:11,color:'#6b7280'}}>787-249-0678  ·  santiago.emmanuel08@gmail.com</div>
         </div>
@@ -536,13 +536,14 @@ function App(){
   const exportQuote=()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems});
   const exportOrd=()=>{if(curOrd)exportOrderToWord(curOrd);};
 
-  const tabs=[['quote','Cotización'],['pipeline','Cotizaciones'],['logistics','Logística']];
+  const tabs=[['quote','Nueva Cotización'],['pipeline','Cotizaciones'],['logistics','Logística']];
   const activeTab=view==='quote-prev'?'quote':view==='order-form'||view==='order-prev'?'logistics':view;
 
   return <div style={{fontFamily:'system-ui,-apple-system,sans-serif',color:'#111',minHeight:600,background:'#f5f5f4'}}>
     <div className="no-print" style={{background:'#fff',borderBottom:'0.5px solid #e5e7eb',padding:'0 16px',display:'flex',alignItems:'center',justifyContent:'space-between',height:50,position:'sticky',top:0,zIndex:10}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
-        <div style={{width:30,height:30,background:'#1e3a5f',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,color:'#fff'}}>L</div>
+        <img src="logo.png" alt="Legacy" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{height:34,width:'auto',objectFit:'contain'}}/>
+        <div style={{width:30,height:30,background:'#1e3a5f',borderRadius:7,display:'none',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,color:'#fff'}}>L</div>
         <div>
           <div style={{fontWeight:700,fontSize:13,letterSpacing:'.07em'}}>LEGACY UNIFORMS</div>
           <div style={{fontSize:9,color:'#9ca3af',letterSpacing:'.05em'}}>SISTEMA DE GESTIÓN</div>
