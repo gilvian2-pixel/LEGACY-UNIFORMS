@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>LEGACY Uniforms – Sistema de Gestión</title>
+<title>LEGACY Uniforms</title>
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -20,42 +20,43 @@ button{font-family:inherit;cursor:pointer;}
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useRef}=React;
+const {useState,useRef,useEffect}=React;
 const SIZES=['XS','S','M','L','XL','XXL'];
 const CATALOG=['Polo','T-Shirt / Camisa','Gorra','Jersey Femenino','Jersey Masculino','Hoodie','Pantalón Reversible','Falda','Leggings','Lycra','Medias','Sleeves','Otro'];
 const DEF={'Polo':20,'T-Shirt / Camisa':14,'Gorra':15,'Jersey Femenino':14,'Jersey Masculino':14,'Hoodie':18,'Pantalón Reversible':27,'Falda':15,'Leggings':18,'Lycra':15,'Medias':8,'Sleeves':6,'Otro':0};
 const FABRICS=['Dri-Fit','Sublimación','Algodón','Poliéster','Spandex','Mesh/Malla','French Terry','Lycra','Nylon','Otro'];
 const SPORTS=['Basketball','Fútbol','Volleyball','Baseball','Softball','Tenis','Track & Field','Natación','Ciclismo','Otro'];
+
+const STATUSES=[
+  {key:'enviada',label:'Enviada a cliente',color:'#2563eb',bg:'#eff6ff'},
+  {key:'aceptada',label:'Aceptada',color:'#7c3aed',bg:'#f5f3ff'},
+  {key:'deposito',label:'Depósito cobrado',color:'#d97706',bg:'#fffbeb'},
+  {key:'entregado',label:'Entregado',color:'#059669',bg:'#ecfdf5'},
+  {key:'saldo',label:'Saldo cobrado',color:'#111',bg:'#f3f4f6'},
+];
+const statusInfo=k=>STATUSES.find(s=>s.key===k)||STATUSES[0];
+
 let _n=0;const uid=()=>++_n;
 const today=()=>new Date().toISOString().split('T')[0];
 const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const rf=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 const qtyOf=i=>SIZES.reduce((s,sz)=>s+(Number(i[sz.toLowerCase()])||0),0);
 
-const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,
-  fabric:'Dri-Fit',material:'',reversible:false,audience:'Adulto',isSport:false,sport:'Basketball',deliveryDate:''});
-const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',
-  xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,
-  placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
-const newOrd=()=>{const n=uid();return{id:n,
-  orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,
-  client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
+const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Adulto',isSport:false,sport:'Basketball',deliveryDate:''});
+const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
+const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
+
+// ---- STORAGE ----
+const STORE_KEY='legacy_pipeline';
+const loadPipeline=async()=>{try{const r=await window.storage.get(STORE_KEY);return r?JSON.parse(r.value):[];}catch{return[];}};
+const savePipeline=async(data)=>{try{await window.storage.set(STORE_KEY,JSON.stringify(data));}catch(e){console.error(e);}};
 
 // ---- HELPERS ----
-const Card=({children,style={}})=>
-  <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #e5e7eb',padding:'14px 16px',...style}}>{children}</div>;
-const Lbl=({c})=>
-  <div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:4,letterSpacing:'.03em'}}>{c}</div>;
-const Btn=({onClick,children,style={}})=>
-  <button onClick={onClick} style={{padding:'7px 14px',borderRadius:7,border:'0.5px solid #d1d5db',background:'#fff',fontSize:13,...style}}>{children}</button>;
-const Row=({children,gap=10,mb=10,cols})=>
-  <div style={{display:'grid',gridTemplateColumns:cols||`repeat(${React.Children.count(children)},1fr)`,gap,marginBottom:mb}}>{children}</div>;
-const Field=({label,children})=>
-  <div><Lbl c={label}/>{children}</div>;
-const Check=({label,checked,onChange})=>
-  <label style={{display:'flex',alignItems:'center',fontSize:13,cursor:'pointer',gap:4,marginTop:16}}>
-    <input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/>{label}
-  </label>;
+const Card=({children,style={}})=><div style={{background:'#fff',borderRadius:10,border:'0.5px solid #e5e7eb',padding:'14px 16px',...style}}>{children}</div>;
+const Lbl=({c})=><div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:4,letterSpacing:'.03em'}}>{c}</div>;
+const Btn=({onClick,children,style={}})=><button onClick={onClick} style={{padding:'7px 14px',borderRadius:7,border:'0.5px solid #d1d5db',background:'#fff',fontSize:13,...style}}>{children}</button>;
+const Row=({children,gap=10,mb=10,cols})=><div style={{display:'grid',gridTemplateColumns:cols||`repeat(${React.Children.count(children)},1fr)`,gap,marginBottom:mb}}>{children}</div>;
+const Field=({label,children})=><div><Lbl c={label}/>{children}</div>;
 
 function ImgUp({value,onChange,label}){
   const ref=useRef();
@@ -69,13 +70,12 @@ function ImgUp({value,onChange,label}){
       :<div onClick={()=>ref.current?.click()} style={{height:100,border:'0.5px dashed #d1d5db',borderRadius:7,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',gap:5,background:'#f9fafb'}}>
         <div style={{width:28,height:28,border:'0.5px solid #d1d5db',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#9ca3af',lineHeight:1}}>+</div>
         <div style={{fontSize:12,color:'#9ca3af'}}>Subir imagen</div>
-        <div style={{fontSize:11,color:'#d1d5db'}}>JPG · PNG</div>
       </div>}
     <input ref={ref} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)rf(f,onChange);}}/>
   </div>;
 }
 
-// ---- WORD EXPORT ----
+// ---- WORD EXPORTS ----
 function exportQuoteToWord({qC,qN,qD,qDD,items}){
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
   const total=i=>qtyOf(i)*(Number(i.price)||0);
@@ -93,54 +93,28 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
     </tr>`).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"/><title>Cotización ${qN}</title>
-<style>
-  body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}
-  table{border-collapse:collapse;width:100%;}
-  th{background:#1e3a5f;color:#fff;padding:7px 8px;font-size:11pt;}
-  .header{display:flex;justify-content:space-between;margin-bottom:20px;}
-  .company{font-size:18pt;font-weight:bold;letter-spacing:2px;}
-  .quote-num{font-size:16pt;font-weight:bold;color:#2563eb;}
-  .totals td{padding:5px 10px;}
-  .grand{font-size:14pt;font-weight:bold;color:#2563eb;}
-  .footer{margin-top:20px;font-size:9pt;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:10px;}
-</style></head>
+<style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;width:100%;}th{background:#1e3a5f;color:#fff;padding:7px 8px;font-size:11pt;}</style></head>
 <body>
 <table style="margin-bottom:16px;"><tr>
-  <td style="width:50%">
-    <div style="background:#1e3a5f;display:inline-block;padding:6px 12px;border-radius:4px;color:#fff;font-size:18pt;font-weight:bold;letter-spacing:3px;margin-bottom:6px">L</div>
-    <span style="font-size:18pt;font-weight:bold;letter-spacing:2px;margin-left:8px">LEGACY UNIFORMS</span><br/>
-    <span style="font-size:9pt;color:#6b7280">787-249-0678 &nbsp;·&nbsp; santiago.emmanuel08@gmail.com</span>
-  </td>
-  <td style="text-align:right;vertical-align:top">
-    <div style="font-size:16pt;font-weight:bold;color:#2563eb">${qN}</div>
-    <div style="font-size:10pt;color:#6b7280;margin-top:3px">${dStr(qD)}</div>
-  </td>
+  <td style="width:50%"><span style="font-size:18pt;font-weight:bold;letter-spacing:2px">LEGACY UNIFORMS</span><br/><span style="font-size:9pt;color:#6b7280">787-249-0678 · santiago.emmanuel08@gmail.com</span></td>
+  <td style="text-align:right;vertical-align:top"><div style="font-size:16pt;font-weight:bold;color:#2563eb">${qN}</div><div style="font-size:10pt;color:#6b7280;margin-top:3px">${dStr(qD)}</div></td>
 </tr></table>
 <table style="margin-bottom:16px;width:auto">
   <tr><td style="font-size:9pt;color:#6b7280;padding-right:20px">Preparado para:</td><td style="font-size:13pt;font-weight:bold">${qC||'—'}</td></tr>
   <tr><td style="font-size:9pt;color:#6b7280">Fecha de entrega:</td><td style="font-size:11pt;font-weight:500">${dStr(qDD)}</td></tr>
 </table>
 <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
-  <thead><tr>
-    <th style="text-align:left;padding:7px 10px">Artículo</th>
-    <th>Tela</th><th>Audiencia</th><th>Deporte</th>
-    ${SIZES.map(s=>`<th>${s}</th>`).join('')}
-    <th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th>
-  </tr></thead>
+  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <table style="width:260px;margin-left:auto;border-collapse:collapse;margin-bottom:20px">
   <tr><td style="padding:5px 10px;color:#6b7280;font-size:10pt">Total de piezas</td><td style="text-align:right;padding:5px 10px;font-weight:600">${items.reduce((s,i)=>s+qtyOf(i),0)}</td></tr>
   <tr style="border-top:1px solid #e5e7eb"><td style="padding:9px 10px 3px;font-size:13pt;font-weight:bold">Total general</td><td style="text-align:right;padding:9px 10px 3px;font-size:14pt;font-weight:bold;color:#2563eb">${fmt(grand)}</td></tr>
 </table>
-<div style="background:#f9fafb;padding:10px 12px;border-radius:6px;font-size:9pt;color:#6b7280;margin-bottom:8px">
-  <b>Condiciones:</b> Precios por unidad · Cotización válida 30 días · No incluye IVU
-</div>
+<div style="background:#f9fafb;padding:10px 12px;border-radius:6px;font-size:9pt;color:#6b7280"><b>Condiciones:</b> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
 </body></html>`;
   const blob=new Blob([html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`Cotizacion_${qN}.doc`;a.click();
-  URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Cotizacion_${qN}.doc`;a.click();URL.revokeObjectURL(url);
 }
 
 function exportOrderToWord(order){
@@ -154,46 +128,23 @@ function exportOrderToWord(order){
       </tr></table>
       <table style="border-collapse:collapse;width:100%;margin-bottom:10px">
         <thead><tr>${SIZES.map(s=>`<th style="background:#1e3a5f;color:#fff;padding:6px 8px">${s}</th>`).join('')}<th style="background:#1e3a5f;color:#fff;padding:6px 8px">Total</th></tr></thead>
-        <tbody><tr style="text-align:center">
-          ${SIZES.map(s=>`<td style="padding:6px 8px;border:1px solid #e5e7eb;font-weight:${Number(item[s.toLowerCase()])>0?'bold':'normal'};color:${Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}
-          <td style="padding:6px 8px;border:1px solid #e5e7eb;font-weight:bold;color:#2563eb">${qtyOf(item)}</td>
-        </tr></tbody>
+        <tbody><tr style="text-align:center">${SIZES.map(s=>`<td style="padding:6px 8px;border:1px solid #e5e7eb">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}<td style="padding:6px 8px;border:1px solid #e5e7eb;font-weight:bold;color:#2563eb">${qtyOf(item)}</td></tr></tbody>
       </table>
-      <table style="width:auto"><tr>
-        <td style="padding-right:24px"><div style="font-size:9pt;color:#6b7280">Ubicación del logo</div><div style="font-size:11pt">${item.placement||'—'}</div></td>
-        <td><div style="font-size:9pt;color:#6b7280">Tamaño</div><div style="font-size:11pt">${item.placementSize||'—'}</div></td>
-      </tr></table>
-      ${item.notes?`<div style="margin-top:8px;background:#f9fafb;padding:8px 10px;border-radius:5px;font-size:10pt"><b style="color:#6b7280;font-size:9pt">Instrucciones:</b> ${item.notes}</div>`:''}
+      ${item.notes?`<div style="padding:8px 10px;background:#f9fafb;border-radius:5px;font-size:10pt">${item.notes}</div>`:''}
     </div>`).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"/><title>Ficha ${order.orderNum}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;}</style></head>
+<head><meta charset="utf-8"/><title>Ficha ${order.orderNum}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;}</style></head>
 <body>
 <table style="width:100%;margin-bottom:18px"><tr>
-  <td><span style="font-size:18pt;font-weight:bold;letter-spacing:2px">LEGACY UNIFORMS</span><br/>
-  <span style="font-size:9pt;color:#6b7280">Ficha técnica de producción</span></td>
-  <td style="text-align:right;vertical-align:top">
-    <div style="font-size:15pt;font-weight:bold">${order.orderNum}</div>
-    <div style="font-size:12pt;font-weight:500">${order.client||'—'}</div>
-    <div style="font-size:9pt;color:#6b7280">${dStr(order.date)}</div>
-  </td>
+  <td><span style="font-size:18pt;font-weight:bold;letter-spacing:2px">LEGACY UNIFORMS</span></td>
+  <td style="text-align:right;vertical-align:top"><div style="font-size:15pt;font-weight:bold">${order.orderNum}</div><div style="font-size:12pt">${order.client||'—'}</div><div style="font-size:9pt;color:#6b7280">${dStr(order.date)}</div></td>
 </tr></table>
-<table style="width:auto;margin-bottom:16px;border-collapse:collapse">
-  <tr><td style="font-size:9pt;color:#6b7280;padding-right:20px;padding-bottom:5px">Fecha de entrega:</td><td style="font-size:12pt;font-weight:bold;color:#2563eb">${dStr(order.deliveryDate)}</td></tr>
-  <tr><td style="font-size:9pt;color:#6b7280">Total de piezas:</td><td style="font-size:12pt;font-weight:bold">${pcs}</td></tr>
-</table>
 <hr style="border:0;border-top:1px solid #e5e7eb;margin-bottom:18px"/>
 ${itemsHtml}
-${order.notes?`<div style="margin-top:16px;padding:10px 12px;background:#f9fafb;border-radius:6px"><b style="font-size:9pt;color:#6b7280">Notas generales:</b><br/>${order.notes}</div>`:''}
-<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9pt;color:#9ca3af;display:flex;justify-content:space-between">
-  <span>LEGACY Uniforms · 787-249-0678 · santiago.emmanuel08@gmail.com</span>
-  <span>Total de piezas: <b>${pcs}</b></span>
-</div>
+<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9pt;color:#9ca3af">LEGACY Uniforms · 787-249-0678 · Total de piezas: <b>${pcs}</b></div>
 </body></html>`;
   const blob=new Blob([html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`Orden_${order.orderNum}.doc`;a.click();
-  URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Orden_${order.orderNum}.doc`;a.click();URL.revokeObjectURL(url);
 }
 
 // ---- QUOTE VIEW ----
@@ -203,17 +154,12 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
   const pcs=items.reduce((s,i)=>s+qtyOf(i),0);
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div>
-        <div style={{fontSize:17,fontWeight:500}}>Nueva cotización</div>
-        <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Artículos, tallas y especificaciones</div>
-      </div>
+      <div><div style={{fontSize:17,fontWeight:500}}>Nueva cotización</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Artículos, tallas y especificaciones</div></div>
       <div style={{display:'flex',gap:8}}>
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
         <Btn onClick={onPrev} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none'}}>Ver cotización →</Btn>
       </div>
     </div>
-
-    {/* Header info */}
     <Card style={{marginBottom:12}}>
       <Row cols="1fr 150px 150px 150px" mb={0}>
         <Field label="Cliente"><input value={qC} onChange={e=>setQC(e.target.value)} placeholder="Nombre del cliente"/></Field>
@@ -222,54 +168,25 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
         <Field label="Fecha de entrega"><input type="date" value={qDD} onChange={e=>setQDD(e.target.value)}/></Field>
       </Row>
     </Card>
-
-    {/* Items */}
     {items.map((item,idx)=><Card key={item.id} style={{marginBottom:10}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontWeight:500,fontSize:13,color:'#374151'}}>Artículo {idx+1}</div>
         {items.length>1&&<button onClick={()=>del(item.id)} style={{fontSize:11,background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>Eliminar</button>}
       </div>
-
-      {/* Row 1: Nombre + precio */}
       <Row cols="180px 90px 1fr 1fr" mb={10}>
-        <Field label="Artículo">
-          <select value={item.name} onChange={e=>setItem(item.id,'name',e.target.value)}>{CATALOG.map(c=><option key={c}>{c}</option>)}</select>
-        </Field>
-        <Field label="Precio u.">
-          <input type="number" value={item.price} onChange={e=>setItem(item.id,'price',e.target.value)} style={{textAlign:'center'}}/>
-        </Field>
-        <Field label="Tipo de tela">
-          <select value={item.fabric} onChange={e=>setItem(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select>
-        </Field>
-        <Field label="Material / detalle adicional">
-          <input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster reciclado..."/>
-        </Field>
+        <Field label="Artículo"><select value={item.name} onChange={e=>setItem(item.id,'name',e.target.value)}>{CATALOG.map(c=><option key={c}>{c}</option>)}</select></Field>
+        <Field label="Precio u."><input type="number" value={item.price} onChange={e=>setItem(item.id,'price',e.target.value)} style={{textAlign:'center'}}/></Field>
+        <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setItem(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
+        <Field label="Material / detalle"><input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster..."/></Field>
       </Row>
-
-      {/* Row 2: Audiencia, reversible, deporte */}
       <Row cols="140px 1fr 1fr" mb={10}>
-        <Field label="Audiencia">
-          <select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>
-            {['Adulto','Niño / Youth'].map(a=><option key={a}>{a}</option>)}
-          </select>
-        </Field>
-        <div>
-          <Lbl c="Opciones de prenda"/>
-          <div style={{display:'flex',gap:20,marginTop:4}}>
-            <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
-              <input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible
-            </label>
-            <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
-              <input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo
-            </label>
-          </div>
-        </div>
-        {item.isSport&&<Field label="Deporte">
-          <select value={item.sport} onChange={e=>setItem(item.id,'sport',e.target.value)}>{SPORTS.map(s=><option key={s}>{s}</option>)}</select>
-        </Field>}
+        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>{['Adulto','Niño / Youth'].map(a=><option key={a}>{a}</option>)}</select></Field>
+        <div><Lbl c="Opciones"/><div style={{display:'flex',gap:20,marginTop:4}}>
+          <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible</label>
+          <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo</label>
+        </div></div>
+        {item.isSport&&<Field label="Deporte"><select value={item.sport} onChange={e=>setItem(item.id,'sport',e.target.value)}>{SPORTS.map(s=><option key={s}>{s}</option>)}</select></Field>}
       </Row>
-
-      {/* Tallas */}
       <div style={{marginBottom:8}}>
         <Lbl c="Cantidades por talla"/>
         <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'flex-end'}}>
@@ -285,9 +202,7 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
         </div>
       </div>
     </Card>)}
-
     <button onClick={add} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar artículo</button>
-
     <div style={{display:'flex',justifyContent:'flex-end'}}>
       <div style={{background:'#fff',border:'0.5px solid #e5e7eb',borderRadius:10,padding:'12px 18px',minWidth:200}}>
         {[['Artículos',items.length],['Piezas',pcs]].map(([l,v])=><div key={l} style={{display:'flex',justifyContent:'space-between',gap:40,fontSize:12,color:'#6b7280',marginBottom:6}}><span>{l}</span><span style={{fontWeight:500,color:'#111'}}>{v}</span></div>)}
@@ -298,7 +213,7 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
 }
 
 // ---- QUOTE PREVIEW ----
-function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport}){
+function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
   const total=i=>qtyOf(i)*(Number(i.price)||0);
   const grand=items.reduce((s,i)=>s+total(i),0);
   const pcs=items.reduce((s,i)=>s+qtyOf(i),0);
@@ -309,6 +224,9 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport}){
       <div style={{display:'flex',gap:8}}>
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
         <Btn onClick={()=>window.print()} style={{fontWeight:500}}>Imprimir / PDF</Btn>
+        <Btn onClick={onSubmit} style={{background:submitted?'#f3f4f6':'#1e3a5f',color:submitted?'#9ca3af':'#fff',fontWeight:600,border:'none',opacity:submitted?.7:1}} disabled={submitted}>
+          {submitted?'✓ Sometida al pipeline':'📋 Someter al pipeline'}
+        </Btn>
       </div>
     </div>
     <Card>
@@ -334,19 +252,17 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport}){
           <thead><tr style={{background:'#1e3a5f'}}>
             {['Artículo','Tela','Audiencia','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
           </tr></thead>
-          <tbody>
-            {items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
-              <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
-                <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
-                <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric}</td>
-                <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.audience}</td>
-                <td style={{padding:'7px 6px',textAlign:'center',color:item.isSport?'#111':'#d1d5db',whiteSpace:'nowrap'}}>{item.isSport?item.sport:'—'}</td>
-                {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
-                <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
-                <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
-                <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
-              </tr>
-            );})}
+          <tbody>{items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
+            <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
+              <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.audience}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',color:item.isSport?'#111':'#d1d5db'}}>{item.isSport?item.sport:'—'}</td>
+              {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
+              <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
+              <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
+              <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
+            </tr>);})}
           </tbody>
         </table>
       </div>
@@ -356,51 +272,134 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport}){
           <div style={{display:'flex',justifyContent:'space-between',padding:'9px 0 0',fontSize:15,fontWeight:600}}><span>Total general</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span></div>
         </div>
       </div>
-      <div style={{marginTop:16,padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}>
-        <strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU
-      </div>
+      <div style={{marginTop:16,padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}><strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
     </Card>
   </div>;
 }
 
-// ---- LOGISTICS LIST ----
-function LogList({orders,onNew,onEdit,onDel,onView}){
+// ---- PIPELINE ----
+function Pipeline({pipeline,setPipeline}){
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{loadPipeline().then(d=>{if(d.length)setPipeline(d);setLoading(false);});},[]);
+  const updateStatus=async(id,status)=>{
+    const updated=pipeline.map(q=>q.id===id?{...q,status}:q);
+    setPipeline(updated);await savePipeline(updated);
+  };
+  const deleteCot=async(id)=>{
+    const updated=pipeline.filter(q=>q.id!==id);
+    setPipeline(updated);await savePipeline(updated);
+  };
+  const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'—';
+  const grand=items=>items.reduce((s,i)=>s+qtyOf(i)*(Number(i.price)||0),0);
+
+  // Summary totals
+  const totals=STATUSES.reduce((acc,s)=>{
+    acc[s.key]=pipeline.filter(q=>q.status===s.key).reduce((sum,q)=>sum+grand(q.items),0);
+    return acc;
+  },{});
+
+  if(loading)return <div style={{textAlign:'center',padding:'3rem',color:'#6b7280',fontSize:13}}>Cargando pipeline...</div>;
+
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div>
-        <div style={{fontSize:17,fontWeight:500}}>Órdenes de producción</div>
-        <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Fichas técnicas para la fábrica</div>
-      </div>
+      <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} registrada{pipeline.length!==1?'s':''}</div></div>
+    </div>
+
+    {/* Status summary cards */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,marginBottom:16}}>
+      {STATUSES.map(s=>{
+        const count=pipeline.filter(q=>q.status===s.key).length;
+        return <div key={s.key} style={{background:s.bg,border:`0.5px solid ${s.color}22`,borderRadius:10,padding:'10px 12px'}}>
+          <div style={{fontSize:10,fontWeight:600,color:s.color,marginBottom:4,letterSpacing:'.03em'}}>{s.label.toUpperCase()}</div>
+          <div style={{fontSize:18,fontWeight:700,color:s.color}}>{count}</div>
+          <div style={{fontSize:11,color:s.color,opacity:.8,marginTop:2}}>{fmt(totals[s.key])}</div>
+        </div>;
+      })}
+    </div>
+
+    {pipeline.length===0
+      ?<Card style={{textAlign:'center',padding:'2.5rem 2rem'}}>
+        <div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay cotizaciones en el pipeline</div>
+        <div style={{fontSize:12,color:'#9ca3af'}}>Crea una cotización y presiona "Someter al pipeline"</div>
+      </Card>
+      :<div style={{display:'flex',flexDirection:'column',gap:10}}>
+        {pipeline.map(q=>{
+          const si=statusInfo(q.status);
+          const pcs=q.items.reduce((s,i)=>s+qtyOf(i),0);
+          return <Card key={q.id} style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+            {/* Status badge */}
+            <div style={{minWidth:130}}>
+              <div style={{fontSize:10,color:'#6b7280',marginBottom:4}}>Estado</div>
+              <select value={q.status} onChange={e=>updateStatus(q.id,e.target.value)}
+                style={{fontSize:11,fontWeight:600,color:si.color,background:si.bg,border:`0.5px solid ${si.color}44`,borderRadius:6,padding:'4px 8px',width:'auto',cursor:'pointer'}}>
+                {STATUSES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+            {/* Info */}
+            <div style={{flex:1,minWidth:140}}>
+              <div style={{fontWeight:600,fontSize:14}}>{q.client||'Sin cliente'}</div>
+              <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{q.quoteNum} · {dStr(q.date)}</div>
+            </div>
+            {q.deliveryDate&&<div style={{minWidth:100}}>
+              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Entrega</div>
+              <div style={{fontSize:12,fontWeight:500,color:'#2563eb'}}>{dStr(q.deliveryDate)}</div>
+            </div>}
+            <div style={{minWidth:70,textAlign:'right'}}>
+              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Piezas</div>
+              <div style={{fontSize:13,fontWeight:600}}>{pcs}</div>
+            </div>
+            <div style={{minWidth:90,textAlign:'right'}}>
+              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Total</div>
+              <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
+            </div>
+            <button onClick={()=>deleteCot(q.id)} style={{background:'none',border:'none',fontSize:16,color:'#d1d5db',cursor:'pointer',padding:'4px 6px',lineHeight:1}} title="Eliminar">×</button>
+          </Card>;
+        })}
+      </div>}
+
+    {/* Revenue summary */}
+    {pipeline.length>0&&<div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
+      <Card style={{padding:'12px 18px',minWidth:220}}>
+        <div style={{fontSize:11,color:'#6b7280',marginBottom:6,fontWeight:500}}>RESUMEN GENERAL</div>
+        {[
+          ['Total cotizado',pipeline.reduce((s,q)=>s+grand(q.items),0),'#6b7280'],
+          ['Total aceptado',['aceptada','deposito','entregado','saldo'].reduce((s,k)=>s+totals[k],0),'#7c3aed'],
+          ['Total cobrado',['deposito','saldo'].reduce((s,k)=>s+totals[k],0),'#059669'],
+        ].map(([l,v,c])=><div key={l} style={{display:'flex',justifyContent:'space-between',gap:30,fontSize:12,marginBottom:5}}><span style={{color:'#6b7280'}}>{l}</span><span style={{fontWeight:600,color:c}}>{fmt(v)}</span></div>)}
+      </Card>
+    </div>}
+  </div>;
+}
+
+// ---- LOGISTICS ----
+function LogList({orders,onNew,onEdit,onDel,onView}){
+  const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'Sin fecha';
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <div><div style={{fontSize:17,fontWeight:500}}>Órdenes de producción</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Fichas técnicas para la fábrica</div></div>
       <Btn onClick={onNew} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none'}}>+ Nueva orden</Btn>
     </div>
     {orders.length===0
-      ?<Card style={{textAlign:'center',padding:'2.5rem 2rem'}}>
-        <div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay órdenes creadas</div>
-        <div style={{fontSize:12,color:'#9ca3af'}}>Crea una orden para enviar especificaciones a la fábrica</div>
-      </Card>
+      ?<Card style={{textAlign:'center',padding:'2.5rem 2rem'}}><div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay órdenes creadas</div></Card>
       :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
-        {orders.map(o=>{
-          const pcs=o.items.reduce((s,i)=>s+qtyOf(i),0);
-          const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'Sin fecha';
-          return <Card key={o.id} style={{display:'flex',flexDirection:'column',gap:10}}>
+        {orders.map(o=>{const pcs=o.items.reduce((s,i)=>s+qtyOf(i),0);return(
+          <Card key={o.id} style={{display:'flex',flexDirection:'column',gap:10}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div><div style={{fontWeight:500,fontSize:14}}>{o.client||'Sin cliente'}</div><div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{o.orderNum}</div></div>
-              <div style={{fontSize:11,background:'#f3f4f6',color:'#6b7280',padding:'3px 8px',borderRadius:6,whiteSpace:'nowrap'}}>{dStr(o.date)}</div>
+              <div style={{fontSize:11,background:'#f3f4f6',color:'#6b7280',padding:'3px 8px',borderRadius:6}}>{dStr(o.date)}</div>
             </div>
             {o.deliveryDate&&<div style={{fontSize:11,background:'#eff6ff',color:'#2563eb',padding:'3px 8px',borderRadius:5,display:'inline-block',width:'fit-content'}}>Entrega: {dStr(o.deliveryDate)}</div>}
-            <div style={{fontSize:12,color:'#6b7280'}}>{o.items.length} {o.items.length===1?'artículo':'artículos'} · {pcs} piezas</div>
+            <div style={{fontSize:12,color:'#6b7280'}}>{o.items.length} artículo{o.items.length!==1?'s':''} · {pcs} piezas</div>
             <div style={{display:'flex',gap:6,marginTop:2}}>
               <Btn onClick={()=>onView(o)} style={{flex:1,background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none',textAlign:'center'}}>Ver ficha</Btn>
               <Btn onClick={()=>onEdit(o)} style={{flex:1,textAlign:'center'}}>Editar</Btn>
               <Btn onClick={()=>onDel(o.id)} style={{padding:'7px 10px',color:'#9ca3af'}}>×</Btn>
             </div>
-          </Card>;
-        })}
+          </Card>);})}
       </div>}
   </div>;
 }
 
-// ---- ORDER FORM ----
 function OrderForm({order,setCO,onSave,onCancel}){
   const set=(f,v)=>setCO(p=>({...p,[f]:v}));
   const setI=(id,f,v)=>setCO(p=>({...p,items:p.items.map(i=>i.id===id?{...i,[f]:v}:i)}));
@@ -410,7 +409,6 @@ function OrderForm({order,setCO,onSave,onCancel}){
       <Btn onClick={onSave} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>Guardar orden</Btn>
     </div>
     <Card style={{marginBottom:12}}>
-      <div style={{fontSize:14,fontWeight:500,marginBottom:10}}>Información de la orden</div>
       <Row cols="1fr 170px 150px 160px" mb={0}>
         <Field label="Cliente"><input value={order.client} onChange={e=>set('client',e.target.value)} placeholder="Nombre del cliente"/></Field>
         <Field label="No. de orden"><input value={order.orderNum} onChange={e=>set('orderNum',e.target.value)}/></Field>
@@ -418,7 +416,6 @@ function OrderForm({order,setCO,onSave,onCancel}){
         <Field label="Fecha de entrega"><input type="date" value={order.deliveryDate} onChange={e=>set('deliveryDate',e.target.value)}/></Field>
       </Row>
     </Card>
-
     {order.items.map((item,idx)=><Card key={item.id} style={{marginBottom:12}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontWeight:500,fontSize:14}}>Artículo {idx+1}</div>
@@ -430,12 +427,8 @@ function OrderForm({order,setCO,onSave,onCancel}){
         <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setI(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
       </Row>
       <Row cols="1fr 1fr" mb={10}>
-        <Field label="Material / detalle adicional"><input value={item.material} onChange={e=>setI(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster, gramaje 180g..."/></Field>
-        <div/>
-      </Row>
-      <Row cols="1fr 1fr" mb={10}>
-        <ImgUp value={item.productImg} onChange={v=>setI(item.id,'productImg',v)} label="Imagen del producto / referencia"/>
-        <ImgUp value={item.logo} onChange={v=>setI(item.id,'logo',v)} label="Logo / diseño a aplicar"/>
+        <ImgUp value={item.productImg} onChange={v=>setI(item.id,'productImg',v)} label="Imagen del producto"/>
+        <ImgUp value={item.logo} onChange={v=>setI(item.id,'logo',v)} label="Logo / diseño"/>
       </Row>
       <div style={{marginBottom:10}}>
         <Lbl c="Cantidades por talla"/>
@@ -454,15 +447,13 @@ function OrderForm({order,setCO,onSave,onCancel}){
         <Field label="Ubicación del logo"><input value={item.placement} onChange={e=>setI(item.id,'placement',e.target.value)} placeholder="Ej: Frente pecho izquierdo"/></Field>
         <Field label="Tamaño del logo"><input value={item.placementSize} onChange={e=>setI(item.id,'placementSize',e.target.value)} placeholder="Ej: 5 cm"/></Field>
       </Row>
-      <Field label="Instrucciones especiales para la fábrica"><textarea value={item.notes} onChange={e=>setI(item.id,'notes',e.target.value)} placeholder="Ej: Logo bordado, hilo dorado, no serigrafía..." rows={2} style={{resize:'vertical'}}/></Field>
+      <Field label="Instrucciones especiales"><textarea value={item.notes} onChange={e=>setI(item.id,'notes',e.target.value)} placeholder="Ej: Logo bordado, hilo dorado..." rows={2} style={{resize:'vertical'}}/></Field>
     </Card>)}
-
     <button onClick={()=>setCO(p=>({...p,items:[...p.items,newOI()]}))} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar otro artículo</button>
-    <Card><Field label="Notas generales de la orden"><textarea value={order.notes} onChange={e=>setCO(p=>({...p,notes:e.target.value}))} placeholder="Notas adicionales para la fábrica..." rows={3} style={{resize:'vertical'}}/></Field></Card>
+    <Card><Field label="Notas generales"><textarea value={order.notes} onChange={e=>setCO(p=>({...p,notes:e.target.value}))} rows={3} style={{resize:'vertical'}}/></Field></Card>
   </div>;
 }
 
-// ---- ORDER PREVIEW ----
 function OrderPrev({order,onBack,onExport}){
   const pcs=order.items.reduce((s,i)=>s+qtyOf(i),0);
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
@@ -486,45 +477,35 @@ function OrderPrev({order,onBack,onExport}){
         <div style={{textAlign:'right'}}>
           <div style={{fontSize:16,fontWeight:700}}>{order.orderNum}</div>
           <div style={{fontSize:14,fontWeight:500,marginTop:2}}>{order.client||'—'}</div>
-          <div style={{fontSize:11,color:'#6b7280'}}>{dStr(order.date)}</div>
         </div>
       </div>
-      {order.deliveryDate&&<div style={{display:'inline-block',background:'#eff6ff',color:'#2563eb',padding:'5px 12px',borderRadius:6,fontSize:12,fontWeight:600,marginBottom:14}}>Fecha de entrega: {dStr(order.deliveryDate)}</div>}
-      {order.items.map((item,idx)=>{const t=qtyOf(item);return(
-        <div key={item.id} style={{marginBottom:idx<order.items.length-1?20:0,paddingBottom:idx<order.items.length-1?20:0,borderBottom:idx<order.items.length-1?'0.5px solid #e5e7eb':'none'}}>
-          <div style={{display:'flex',gap:18,flexWrap:'wrap'}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,width:196,flexShrink:0}}>
-              {['productImg','logo'].map((field,fi)=><div key={field}>
-                <div style={{fontSize:11,color:'#6b7280',marginBottom:3}}>{fi===0?'Producto':'Logo'}</div>
-                {item[field]?<img src={item[field]} alt={field} style={{width:'100%',height:88,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb'}}/>
-                  :<div style={{width:'100%',height:88,border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#d1d5db'}}>Sin imagen</div>}
-              </div>)}
+      {order.items.map((item,idx)=><div key={item.id} style={{marginBottom:idx<order.items.length-1?20:0,paddingBottom:idx<order.items.length-1?20:0,borderBottom:idx<order.items.length-1?'0.5px solid #e5e7eb':'none'}}>
+        <div style={{display:'flex',gap:18,flexWrap:'wrap'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,width:196,flexShrink:0}}>
+            {['productImg','logo'].map((field,fi)=><div key={field}>
+              <div style={{fontSize:11,color:'#6b7280',marginBottom:3}}>{fi===0?'Producto':'Logo'}</div>
+              {item[field]?<img src={item[field]} alt={field} style={{width:'100%',height:88,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb'}}/>
+                :<div style={{width:'100%',height:88,border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#d1d5db'}}>Sin imagen</div>}
+            </div>)}
+          </div>
+          <div style={{flex:1,minWidth:200}}>
+            <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>{item.garment}{item.color?` — ${item.color}`:''} <span style={{fontSize:11,background:'#f3f4f6',color:'#374141',padding:'2px 7px',borderRadius:4}}>{item.fabric}</span></div>
+            <div style={{border:'0.5px solid #e5e7eb',borderRadius:7,overflow:'hidden',marginBottom:8}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead><tr style={{background:'#f9fafb'}}>{SIZES.map(s=><th key={s} style={{padding:'5px 7px',textAlign:'center',fontWeight:500,fontSize:11,color:'#6b7280'}}>{s}</th>)}<th style={{padding:'5px 7px',textAlign:'center',fontWeight:500,fontSize:11,color:'#6b7280'}}>Total</th></tr></thead>
+                <tbody><tr>{SIZES.map(s=><td key={s} style={{padding:'5px 7px',textAlign:'center',fontWeight:Number(item[s.toLowerCase()])>0?600:400,color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}<td style={{padding:'5px 7px',textAlign:'center',fontWeight:600,color:'#2563eb'}}>{qtyOf(item)}</td></tr></tbody>
+              </table>
             </div>
-            <div style={{flex:1,minWidth:200}}>
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-                <div style={{fontSize:15,fontWeight:600}}>{item.garment}</div>
-                {item.color&&<span style={{fontSize:12,color:'#6b7280'}}>{item.color}</span>}
-                <span style={{fontSize:11,background:'#f3f4f6',color:'#374141',padding:'2px 7px',borderRadius:4}}>{item.fabric}</span>
-                {item.material&&<span style={{fontSize:11,color:'#9ca3af'}}>{item.material}</span>}
-              </div>
-              <div style={{border:'0.5px solid #e5e7eb',borderRadius:7,overflow:'hidden',marginBottom:8}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                  <thead><tr style={{background:'#f9fafb'}}>{SIZES.map(s=><th key={s} style={{padding:'5px 7px',textAlign:'center',fontWeight:500,fontSize:11,color:'#6b7280'}}>{s}</th>)}<th style={{padding:'5px 7px',textAlign:'center',fontWeight:500,fontSize:11,color:'#6b7280'}}>Total</th></tr></thead>
-                  <tbody><tr>{SIZES.map(s=><td key={s} style={{padding:'5px 7px',textAlign:'center',fontWeight:Number(item[s.toLowerCase()])>0?600:400,color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}<td style={{padding:'5px 7px',textAlign:'center',fontWeight:600,color:'#2563eb'}}>{t}</td></tr></tbody>
-                </table>
-              </div>
-              <div style={{display:'flex',gap:16,flexWrap:'wrap',marginBottom:item.notes?8:0}}>
-                <div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Ubicación del logo</div><div style={{fontSize:12}}>{item.placement||'—'}</div></div>
-                {item.placementSize&&<div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Tamaño</div><div style={{fontSize:12}}>{item.placementSize}</div></div>}
-              </div>
-              {item.notes&&<div style={{padding:'6px 10px',background:'#f9fafb',borderRadius:7,fontSize:12,marginTop:4}}><span style={{fontWeight:500,color:'#6b7280',fontSize:11}}>Instrucciones: </span>{item.notes}</div>}
+            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+              <div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Ubicación</div><div style={{fontSize:12}}>{item.placement||'—'}</div></div>
+              {item.placementSize&&<div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Tamaño</div><div style={{fontSize:12}}>{item.placementSize}</div></div>}
             </div>
+            {item.notes&&<div style={{padding:'6px 10px',background:'#f9fafb',borderRadius:7,fontSize:12,marginTop:8}}>{item.notes}</div>}
           </div>
         </div>
-      );})}
-      {order.notes&&<div style={{marginTop:14,padding:'10px 12px',background:'#f9fafb',borderRadius:8}}><div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:3}}>Notas generales</div><div style={{fontSize:12}}>{order.notes}</div></div>}
+      </div>)}
       <div style={{marginTop:16,paddingTop:12,borderTop:'0.5px solid #e5e7eb',display:'flex',justifyContent:'space-between',fontSize:11,color:'#9ca3af'}}>
-        <span>LEGACY Uniforms · 787-249-0678 · santiago.emmanuel08@gmail.com</span>
+        <span>LEGACY Uniforms · 787-249-0678</span>
         <span>Total de piezas: <strong style={{color:'#111'}}>{pcs}</strong></span>
       </div>
     </Card>
@@ -537,14 +518,26 @@ function App(){
   const [qC,setQC]=useState('');const [qN,setQN]=useState('COT-2026-001');
   const [qD,setQD]=useState(today());const [qDD,setQDD]=useState('');
   const [qItems,setQItems]=useState([newQI()]);
+  const [submitted,setSubmitted]=useState(false);
   const [orders,setOrders]=useState([]);const [curOrd,setCurOrd]=useState(null);
+  const [pipeline,setPipeline]=useState([]);
 
   const setQItem=(id,f,v)=>setQItems(p=>p.map(i=>{if(i.id!==id)return i;const u={...i,[f]:v};if(f==='name')u.price=DEF[v]??0;return u;}));
   const saveOrd=()=>{if(!curOrd)return;setOrders(p=>{const idx=p.findIndex(o=>o.id===curOrd.id);if(idx>=0){const n=[...p];n[idx]=curOrd;return n;}return[...p,curOrd];});setView('logistics');setCurOrd(null);};
-  const isQ=['quote','quote-prev'].includes(view);const isL=['logistics','order-form','order-prev'].includes(view);
+
+  const submitToPipeline=async()=>{
+    const entry={id:uid(),quoteNum:qN,client:qC,date:qD,deliveryDate:qDD,items:qItems,status:'enviada',submittedAt:new Date().toISOString()};
+    const updated=[...pipeline,entry];
+    setPipeline(updated);
+    await savePipeline(updated);
+    setSubmitted(true);
+  };
 
   const exportQuote=()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems});
   const exportOrd=()=>{if(curOrd)exportOrderToWord(curOrd);};
+
+  const tabs=[['quote','Cotización'],['pipeline','Pipeline'],['logistics','Logística']];
+  const activeTab=view==='quote-prev'?'quote':view==='order-form'||view==='order-prev'?'logistics':view;
 
   return <div style={{fontFamily:'system-ui,-apple-system,sans-serif',color:'#111',minHeight:600,background:'#f5f5f4'}}>
     <div className="no-print" style={{background:'#fff',borderBottom:'0.5px solid #e5e7eb',padding:'0 16px',display:'flex',alignItems:'center',justifyContent:'space-between',height:50,position:'sticky',top:0,zIndex:10}}>
@@ -556,14 +549,17 @@ function App(){
         </div>
       </div>
       <nav style={{display:'flex',gap:4}}>
-        {[['quote','Cotización',isQ],['logistics','Logística',isL]].map(([v,label,active])=>
-          <button key={v} onClick={()=>setView(v)} style={{padding:'5px 13px',borderRadius:7,border:'0.5px solid',borderColor:active?'#9ca3af':'#e5e7eb',background:active?'#f3f4f6':'transparent',fontSize:12,fontWeight:active?500:400,cursor:'pointer',color:active?'#111':'#6b7280'}}>{label}</button>
-        )}
+        {tabs.map(([v,label])=>{const active=activeTab===v;return(
+          <button key={v} onClick={()=>{setView(v);}} style={{padding:'5px 13px',borderRadius:7,border:'0.5px solid',borderColor:active?'#9ca3af':'#e5e7eb',background:active?'#f3f4f6':'transparent',fontSize:12,fontWeight:active?500:400,cursor:'pointer',color:active?'#111':'#6b7280',position:'relative'}}>
+            {label}
+            {v==='pipeline'&&pipeline.length>0&&<span style={{position:'absolute',top:-4,right:-4,background:'#2563eb',color:'#fff',fontSize:9,fontWeight:700,borderRadius:10,padding:'1px 5px',minWidth:14,textAlign:'center'}}>{pipeline.length}</span>}
+          </button>);})}
       </nav>
     </div>
-    <div style={{maxWidth:940,margin:'0 auto',padding:14}}>
-      {view==='quote'&&<QuoteView qC={qC} setQC={setQC} qN={qN} setQN={setQN} qD={qD} setQD={setQD} qDD={qDD} setQDD={setQDD} items={qItems} setItem={setQItem} add={()=>setQItems(p=>[...p,newQI()])} del={id=>setQItems(p=>p.filter(i=>i.id!==id))} onPrev={()=>setView('quote-prev')} onExport={exportQuote}/>}
-      {view==='quote-prev'&&<QuotePrev qC={qC} qN={qN} qD={qD} qDD={qDD} items={qItems} onBack={()=>setView('quote')} onExport={exportQuote}/>}
+    <div style={{maxWidth:960,margin:'0 auto',padding:14}}>
+      {view==='quote'&&<QuoteView qC={qC} setQC={setQC} qN={qN} setQN={setQN} qD={qD} setQD={setQD} qDD={qDD} setQDD={setQDD} items={qItems} setItem={setQItem} add={()=>{setQItems(p=>[...p,newQI()]);setSubmitted(false);}} del={id=>{setQItems(p=>p.filter(i=>i.id!==id));setSubmitted(false);}} onPrev={()=>setView('quote-prev')} onExport={exportQuote}/>}
+      {view==='quote-prev'&&<QuotePrev qC={qC} qN={qN} qD={qD} qDD={qDD} items={qItems} onBack={()=>setView('quote')} onExport={exportQuote} onSubmit={submitToPipeline} submitted={submitted}/>}
+      {view==='pipeline'&&<Pipeline pipeline={pipeline} setPipeline={setPipeline}/>}
       {view==='logistics'&&<LogList orders={orders} onNew={()=>{setCurOrd(newOrd());setView('order-form');}} onEdit={o=>{setCurOrd(JSON.parse(JSON.stringify(o)));setView('order-form');}} onDel={id=>setOrders(p=>p.filter(o=>o.id!==id))} onView={o=>{setCurOrd(o);setView('order-prev');}}/>}
       {view==='order-form'&&curOrd&&<OrderForm order={curOrd} setCO={setCurOrd} onSave={saveOrd} onCancel={()=>{setView('logistics');setCurOrd(null);}}/>}
       {view==='order-prev'&&curOrd&&<OrderPrev order={curOrd} onBack={()=>setView('logistics')} onExport={exportOrd}/>}
