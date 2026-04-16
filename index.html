@@ -225,7 +225,7 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
         <Btn onClick={()=>window.print()} style={{fontWeight:500}}>Imprimir / PDF</Btn>
         <Btn onClick={onSubmit} style={{background:submitted?'#f3f4f6':'#1e3a5f',color:submitted?'#9ca3af':'#fff',fontWeight:600,border:'none',opacity:submitted?.7:1}} disabled={submitted}>
-          {submitted?'✓ Sometida al pipeline':'📋 Someter al pipeline'}
+          {submitted?'✓ Cotización sometida':'📋 Someter cotización'}
         </Btn>
       </div>
     </div>
@@ -302,7 +302,7 @@ function Pipeline({pipeline,setPipeline}){
 
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} registrada{pipeline.length!==1?'s':''}</div></div>
+      <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div>      <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} sometida{pipeline.length!==1?'s':''}</div></div>
     </div>
 
     {/* Status summary cards */}
@@ -536,7 +536,7 @@ function App(){
   const exportQuote=()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems});
   const exportOrd=()=>{if(curOrd)exportOrderToWord(curOrd);};
 
-  const tabs=[['quote','Cotización'],['pipeline','Pipeline'],['logistics','Logística']];
+  const tabs=[['quote','Cotización'],['pipeline','Cotizaciones'],['logistics','Logística']];
   const activeTab=view==='quote-prev'?'quote':view==='order-form'||view==='order-prev'?'logistics':view;
 
   return <div style={{fontFamily:'system-ui,-apple-system,sans-serif',color:'#111',minHeight:600,background:'#f5f5f4'}}>
