@@ -42,7 +42,9 @@ const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maxim
 const rf=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 const qtyOf=i=>SIZES.reduce((s,sz)=>s+(Number(i[sz.toLowerCase()])||0),0);
 
-const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Adulto',isSport:false,sport:'Basketball',deliveryDate:''});
+const COLLAR_TYPES=['Redondo','Cuello V','Polo (botones)','Cuello alto','Otro'];
+const COLLAR_ITEMS=['Polo','T-Shirt / Camisa','Hoodie','Jersey Femenino','Jersey Masculino'];
+const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collarType:'Redondo',isSport:false,sport:'Basketball',deliveryDate:''});
 const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
 const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
 
@@ -85,6 +87,7 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
       <td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:500">${item.name}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.fabric||'—'}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.audience||'—'}</td>
+      <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.collarType||'—'}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.isSport?item.sport:'—'}</td>
       ${SIZES.map(s=>`<td style="padding:7px 5px;border:1px solid #e5e7eb;text-align:center">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}
       <td style="padding:7px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:600">${qtyOf(item)}</td>
@@ -104,7 +107,7 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
   <tr><td style="font-size:9pt;color:#6b7280">Fecha de entrega:</td><td style="font-size:11pt;font-weight:500">${dStr(qDD)}</td></tr>
 </table>
 <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
-  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
+  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Cuello</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <table style="width:260px;margin-left:auto;border-collapse:collapse;margin-bottom:20px">
@@ -179,8 +182,9 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
         <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setItem(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
         <Field label="Material / detalle"><input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster..."/></Field>
       </Row>
-      <Row cols="140px 1fr 1fr" mb={10}>
-        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>        {['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
+      <Row cols="140px 140px 1fr 1fr" mb={10}>
+        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>{['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
+        {COLLAR_ITEMS.includes(item.name)&&<Field label="Tipo de cuello"><select value={item.collarType||'Redondo'} onChange={e=>setItem(item.id,'collarType',e.target.value)}>{COLLAR_TYPES.map(c=><option key={c}>{c}</option>)}</select></Field>}
         <div><Lbl c="Opciones"/><div style={{display:'flex',gap:20,marginTop:4}}>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible</label>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo</label>
@@ -250,13 +254,14 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
       <div style={{border:'0.5px solid #e5e7eb',borderRadius:8,overflow:'hidden',marginBottom:14,overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:700}}>
           <thead><tr style={{background:'#1e3a5f'}}>
-            {['Artículo','Tela','Audiencia','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
+            {['Artículo','Tela','Audiencia','Cuello','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
           </tr></thead>
           <tbody>{items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
             <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
               <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
               <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric}</td>
               <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.audience}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap',color:item.collarType?'#111':'#d1d5db'}}>{item.collarType||'—'}</td>
               <td style={{padding:'7px 6px',textAlign:'center',color:item.isSport?'#111':'#d1d5db'}}>{item.isSport?item.sport:'—'}</td>
               {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
               <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
