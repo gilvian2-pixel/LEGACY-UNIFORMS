@@ -282,9 +282,60 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
   </div>;
 }
 
+// ---- QUOTE QUICK VIEW MODAL ----
+function QuoteModal({q,onClose}){
+  const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
+  const total=i=>qtyOf(i)*(Number(i.price)||0);
+  const grand=q.items.reduce((s,i)=>s+total(i),0);
+  const pcs=q.items.reduce((s,i)=>s+qtyOf(i),0);
+  return <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.45)',backdropFilter:'blur(2px)'}}/>
+    <div style={{position:'relative',background:'#fff',borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.18)',width:'min(860px,95vw)',maxHeight:'88vh',overflowY:'auto',padding:'24px 28px'}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18,paddingBottom:14,borderBottom:'0.5px solid #e5e7eb'}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:700,color:'#2563eb',letterSpacing:'.04em'}}>{q.quoteNum}</div>
+          <div style={{fontSize:15,fontWeight:600,marginTop:3}}>{q.client||'—'}</div>
+          <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{dStr(q.date)}{q.deliveryDate?<> · <span style={{color:'#2563eb'}}>Entrega: {dStr(q.deliveryDate)}</span></>:''}</div>
+        </div>
+        <button onClick={onClose} style={{background:'#f3f4f6',border:'none',borderRadius:8,width:32,height:32,fontSize:18,cursor:'pointer',color:'#6b7280',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
+      </div>
+      {/* Items table */}
+      <div style={{border:'0.5px solid #e5e7eb',borderRadius:8,overflow:'hidden',marginBottom:16,overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600}}>
+          <thead><tr style={{background:'#1e3a5f'}}>
+            {['Artículo','Tela','Audiencia','Cuello',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{q.items.map((item,idx)=>{const qt=qtyOf(item);const t=total(item);return(
+            <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
+              <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric||'—'}</td>
+              <td style={{padding:'7px 6px',textAlign:'center'}}>{item.audience||'—'}</td>
+              <td style={{padding:'7px 6px',textAlign:'center',color:item.collarType?'#111':'#d1d5db'}}>{item.collarType||'—'}</td>
+              {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
+              <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{qt}</td>
+              <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
+              <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
+            </tr>);})}
+          </tbody>
+        </table>
+      </div>
+      {/* Totals */}
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <div style={{minWidth:220}}>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,color:'#6b7280',borderBottom:'0.5px solid #e5e7eb'}}><span>Total de piezas</span><span style={{fontWeight:600,color:'#111'}}>{pcs}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'9px 0 0',fontSize:15,fontWeight:600}}><span>Total general</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span></div>
+        </div>
+      </div>
+      <div style={{marginTop:14,padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}><strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
+    </div>
+  </div>;
+}
+
 // ---- PIPELINE ----
 function Pipeline({pipeline,setPipeline}){
   const [loading,setLoading]=useState(true);
+  const [previewQ,setPreviewQ]=useState(null);
   useEffect(()=>{loadPipeline().then(d=>{if(d.length)setPipeline(d);setLoading(false);});},[]);
   const updateStatus=async(id,status)=>{
     const updated=pipeline.map(q=>q.id===id?{...q,status}:q);
@@ -306,6 +357,7 @@ function Pipeline({pipeline,setPipeline}){
   if(loading)return <div style={{textAlign:'center',padding:'3rem',color:'#6b7280',fontSize:13}}>Cargando pipeline...</div>;
 
   return <div>
+    {previewQ&&<QuoteModal q={previewQ} onClose={()=>setPreviewQ(null)}/>}
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
       <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div>      <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} sometida{pipeline.length!==1?'s':''}</div></div>
     </div>
@@ -357,6 +409,7 @@ function Pipeline({pipeline,setPipeline}){
               <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Total</div>
               <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
             </div>
+            <button onClick={()=>setPreviewQ(q)} style={{background:'#eff6ff',border:'none',borderRadius:7,padding:'5px 10px',fontSize:14,cursor:'pointer',color:'#2563eb',lineHeight:1}} title="Ver cotización">👁</button>
             <button onClick={()=>deleteCot(q.id)} style={{background:'none',border:'none',fontSize:16,color:'#d1d5db',cursor:'pointer',padding:'4px 6px',lineHeight:1}} title="Eliminar">×</button>
           </Card>;
         })}
