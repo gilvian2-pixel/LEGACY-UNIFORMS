@@ -180,7 +180,7 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
         <Field label="Material / detalle"><input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster..."/></Field>
       </Row>
       <Row cols="140px 1fr 1fr" mb={10}>
-        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>{['Adulto','Niño / Youth'].map(a=><option key={a}>{a}</option>)}</select></Field>
+        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>        {['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
         <div><Lbl c="Opciones"/><div style={{display:'flex',gap:20,marginTop:4}}>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible</label>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo</label>
