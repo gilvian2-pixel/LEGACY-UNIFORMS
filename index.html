@@ -42,7 +42,7 @@ const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maxim
 const rf=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 const qtyOf=i=>SIZES.reduce((s,sz)=>s+(Number(i[sz.toLowerCase()])||0),0);
 
-const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collar:'',isSport:false,sport:'Basketball',deliveryDate:'',designImg:null,logoImg:null});
+const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collar:'',isSport:false,sport:'Basketball',deliveryDate:'',images:[]});
 const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
 const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
 
@@ -204,13 +204,33 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
 
       {/* Imágenes de referencia */}
       <div style={{borderTop:'0.5px solid #f3f4f6',paddingTop:12}}>
-        <Lbl c="Imágenes de referencia (diseño y logos)"/>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10,marginTop:4}}>
-          <ImgUp value={item.designImg} onChange={v=>setItem(item.id,'designImg',v)} label="Diseño / Boceto"/>
-          <ImgUp value={item.logoImg} onChange={v=>setItem(item.id,'logoImg',v)} label="Logo principal"/>
-          {/* extra slots si ya subieron los dos primeros */}
-          {item.designImg&&item.logoImg&&<ImgUp value={item.extraImg1||null} onChange={v=>setItem(item.id,'extraImg1',v)} label="Imagen adicional"/>}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <Lbl c={`Imágenes de referencia (${(item.images||[]).length})`}/>
+          <button onClick={()=>{
+            const ref=document.createElement('input');ref.type='file';ref.accept='image/*';ref.multiple=true;
+            ref.onchange=e=>{
+              const files=Array.from(e.target.files);
+              files.forEach(f=>rf(f,src=>{
+                setItem(item.id,'images',[...(item.images||[]),{id:uid(),src,label:''}]);
+              }));
+            };ref.click();
+          }} style={{fontSize:12,padding:'4px 10px',borderRadius:6,border:'0.5px dashed #2563eb',background:'#eff6ff',color:'#2563eb',cursor:'pointer'}}>
+            + Agregar imagen
+          </button>
         </div>
+        {(item.images||[]).length===0
+          ?<div style={{padding:'14px',border:'0.5px dashed #e5e7eb',borderRadius:8,textAlign:'center',fontSize:12,color:'#9ca3af',background:'#f9fafb'}}>
+            Haz clic en "Agregar imagen" para subir diseños, logos o referencias
+          </div>
+          :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10}}>
+            {(item.images||[]).map((img,ii)=><div key={img.id} style={{position:'relative'}}>
+              <img src={img.src} alt={`ref-${ii}`} style={{width:'100%',height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
+              <button onClick={()=>setItem(item.id,'images',(item.images||[]).filter(x=>x.id!==img.id))}
+                style={{position:'absolute',top:4,right:4,background:'#fff',border:'0.5px solid #d1d5db',borderRadius:5,padding:'1px 6px',fontSize:11,cursor:'pointer',color:'#6b7280',lineHeight:'18px'}}>×</button>
+              <input value={img.label} onChange={e=>{const imgs=[...(item.images||[])];imgs[ii]={...img,label:e.target.value};setItem(item.id,'images',imgs);}}
+                placeholder="Etiqueta (ej: logo frente)" style={{marginTop:4,fontSize:11,padding:'3px 6px'}}/>
+            </div>)}
+          </div>}
       </div>
     </Card>)}
     <button onClick={add} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar artículo</button>
@@ -278,16 +298,12 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
         </table>
       </div>
       {/* Imágenes de referencia en preview */}
-      {items.some(i=>i.designImg||i.logoImg||i.extraImg1)&&<div style={{marginBottom:14}}>
+      {items.some(i=>(i.images||[]).length>0)&&<div style={{marginBottom:14}}>
         <div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:8,letterSpacing:'.03em'}}>IMÁGENES DE REFERENCIA</div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {items.flatMap(i=>[
-            i.designImg&&{src:i.designImg,label:`${i.name} — Diseño`},
-            i.logoImg&&{src:i.logoImg,label:`${i.name} — Logo`},
-            i.extraImg1&&{src:i.extraImg1,label:`${i.name} — Adicional`},
-          ].filter(Boolean)).map((img,idx)=><div key={idx} style={{textAlign:'center'}}>
-            <img src={img.src} alt={img.label} style={{width:110,height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
-            <div style={{fontSize:10,color:'#6b7280',marginTop:4,maxWidth:110}}>{img.label}</div>
+          {items.flatMap(i=>(i.images||[]).map(img=>({...img,itemName:i.name}))).map((img,idx)=><div key={idx} style={{textAlign:'center'}}>
+            <img src={img.src} alt={img.label||idx} style={{width:110,height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
+            <div style={{fontSize:10,color:'#6b7280',marginTop:4,maxWidth:110}}>{img.label||img.itemName}</div>
           </div>)}
         </div>
       </div>}
