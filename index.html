@@ -442,7 +442,7 @@ function QuotePreview({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
 }
 
 // ── Pipeline ───────────────────────────────────────────────────────────────
-function Pipeline({pipeline,setPipeline}){
+function Pipeline({pipeline,setPipeline,onViewQuote}){
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'—';
   const grand=items=>items.reduce((s,i)=>s+qtyOf(i)*(Number(i.price)||0),0);
   const updateStatus=(id,status)=>{const u=pipeline.map(q=>q.id===id?{...q,status}:q);setPipeline(u);lsSave(u);};
@@ -501,6 +501,7 @@ function Pipeline({pipeline,setPipeline}){
                 <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
               </div>
               <button onClick={()=>del(q.id)} style={{background:'none',border:'none',fontSize:18,color:'#d1d5db',cursor:'pointer',padding:'4px 6px'}} title="Eliminar">×</button>
+              <Btn onClick={()=>onViewQuote(q)} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none',fontSize:12,padding:'5px 12px'}}>Ver →</Btn>
             </Card>;
           })}
         </div>}
@@ -672,6 +673,7 @@ function App(){
   const [pipeline,setPipeline]=useState(()=>lsLoad());
   const [orders,setOrders]=useState([]);
   const [curOrd,setCurOrd]=useState(null);
+  const [previewQ,setPreviewQ]=useState(null); // cotización del pipeline en preview
 
   const setQItem=(id,f,v)=>setQItems(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
   const addItem=()=>{setQItems(p=>[...p,newQI()]);setSubmitted(false);};
@@ -722,8 +724,22 @@ function App(){
         <QuotePreview qC={qC} qN={qN} qD={qD} qDD={qDD} items={qItems}
           onBack={()=>setView('quote')} onExport={()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems})}
           onSubmit={submitToPipeline} submitted={submitted}/>}
-      {view==='pipeline'&&
-        <Pipeline pipeline={pipeline} setPipeline={setPipeline}/>}
+      {view==='pipeline'&&!previewQ&&
+        <Pipeline pipeline={pipeline} setPipeline={setPipeline} onViewQuote={q=>{setPreviewQ(q);}}/>}
+      {view==='pipeline'&&previewQ&&
+        <div>
+          <div style={{marginBottom:14}}>
+            <Btn onClick={()=>setPreviewQ(null)}>← Volver a Cotizaciones</Btn>
+          </div>
+          <QuotePreview
+            qC={previewQ.client} qN={previewQ.quoteNum} qD={previewQ.date} qDD={previewQ.deliveryDate}
+            items={previewQ.items}
+            onBack={()=>setPreviewQ(null)}
+            onExport={()=>exportQuoteToWord({qC:previewQ.client,qN:previewQ.quoteNum,qD:previewQ.date,qDD:previewQ.deliveryDate,items:previewQ.items})}
+            onSubmit={()=>{}}
+            submitted={true}
+          />
+        </div>}
       {view==='logistics'&&
         <LogList orders={orders} onNew={()=>{setCurOrd(newOrd());setView('order-form');}} onEdit={o=>{setCurOrd(JSON.parse(JSON.stringify(o)));setView('order-form');}} onDel={id=>setOrders(p=>p.filter(o=>o.id!==id))} onView={o=>{setCurOrd(o);setView('order-prev');}}/>}
       {view==='order-form'&&curOrd&&
