@@ -42,9 +42,7 @@ const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maxim
 const rf=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 const qtyOf=i=>SIZES.reduce((s,sz)=>s+(Number(i[sz.toLowerCase()])||0),0);
 
-const COLLAR_TYPES=['Redondo','Cuello V','Polo (botones)','Cuello alto','Otro'];
-const COLLAR_ITEMS=['Polo','T-Shirt / Camisa','Hoodie','Jersey Femenino','Jersey Masculino'];
-const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collarType:'Redondo',isSport:false,sport:'Basketball',deliveryDate:''});
+const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collar:'',isSport:false,sport:'Basketball',deliveryDate:'',designImg:null,logoImg:null});
 const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
 const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
 
@@ -87,7 +85,6 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
       <td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:500">${item.name}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.fabric||'—'}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.audience||'—'}</td>
-      <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.collarType||'—'}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.isSport?item.sport:'—'}</td>
       ${SIZES.map(s=>`<td style="padding:7px 5px;border:1px solid #e5e7eb;text-align:center">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}
       <td style="padding:7px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:600">${qtyOf(item)}</td>
@@ -107,7 +104,7 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
   <tr><td style="font-size:9pt;color:#6b7280">Fecha de entrega:</td><td style="font-size:11pt;font-weight:500">${dStr(qDD)}</td></tr>
 </table>
 <table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
-  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Cuello</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
+  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
 <table style="width:260px;margin-left:auto;border-collapse:collapse;margin-bottom:20px">
@@ -182,16 +179,15 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
         <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setItem(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
         <Field label="Material / detalle"><input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster..."/></Field>
       </Row>
-      <Row cols="140px 140px 1fr 1fr" mb={10}>
-        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>{['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
-        {COLLAR_ITEMS.includes(item.name)&&<Field label="Tipo de cuello"><select value={item.collarType||'Redondo'} onChange={e=>setItem(item.id,'collarType',e.target.value)}>{COLLAR_TYPES.map(c=><option key={c}>{c}</option>)}</select></Field>}
+      <Row cols="140px 1fr 1fr" mb={10}>
+        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>        {['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
         <div><Lbl c="Opciones"/><div style={{display:'flex',gap:20,marginTop:4}}>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible</label>
           <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo</label>
         </div></div>
         {item.isSport&&<Field label="Deporte"><select value={item.sport} onChange={e=>setItem(item.id,'sport',e.target.value)}>{SPORTS.map(s=><option key={s}>{s}</option>)}</select></Field>}
       </Row>
-      <div style={{marginBottom:8}}>
+      <div style={{marginBottom:10}}>
         <Lbl c="Cantidades por talla"/>
         <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'flex-end'}}>
           {SIZES.map(s=><div key={s} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
@@ -203,6 +199,17 @@ function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,
             <div style={{width:50,height:34,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:15,color:'#2563eb'}}>{qtyOf(item)}</div>
           </div>
           <div style={{marginLeft:8,fontSize:14,fontWeight:500,color:'#2563eb',paddingBottom:4}}>{fmt(total(item))}</div>
+        </div>
+      </div>
+
+      {/* Imágenes de referencia */}
+      <div style={{borderTop:'0.5px solid #f3f4f6',paddingTop:12}}>
+        <Lbl c="Imágenes de referencia (diseño y logos)"/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10,marginTop:4}}>
+          <ImgUp value={item.designImg} onChange={v=>setItem(item.id,'designImg',v)} label="Diseño / Boceto"/>
+          <ImgUp value={item.logoImg} onChange={v=>setItem(item.id,'logoImg',v)} label="Logo principal"/>
+          {/* extra slots si ya subieron los dos primeros */}
+          {item.designImg&&item.logoImg&&<ImgUp value={item.extraImg1||null} onChange={v=>setItem(item.id,'extraImg1',v)} label="Imagen adicional"/>}
         </div>
       </div>
     </Card>)}
@@ -254,14 +261,13 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
       <div style={{border:'0.5px solid #e5e7eb',borderRadius:8,overflow:'hidden',marginBottom:14,overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:700}}>
           <thead><tr style={{background:'#1e3a5f'}}>
-            {['Artículo','Tela','Audiencia','Cuello','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
+            {['Artículo','Tela','Audiencia','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
           </tr></thead>
           <tbody>{items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
             <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
               <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
               <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric}</td>
               <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.audience}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap',color:item.collarType?'#111':'#d1d5db'}}>{item.collarType||'—'}</td>
               <td style={{padding:'7px 6px',textAlign:'center',color:item.isSport?'#111':'#d1d5db'}}>{item.isSport?item.sport:'—'}</td>
               {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
               <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
@@ -271,6 +277,20 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
           </tbody>
         </table>
       </div>
+      {/* Imágenes de referencia en preview */}
+      {items.some(i=>i.designImg||i.logoImg||i.extraImg1)&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:8,letterSpacing:'.03em'}}>IMÁGENES DE REFERENCIA</div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {items.flatMap(i=>[
+            i.designImg&&{src:i.designImg,label:`${i.name} — Diseño`},
+            i.logoImg&&{src:i.logoImg,label:`${i.name} — Logo`},
+            i.extraImg1&&{src:i.extraImg1,label:`${i.name} — Adicional`},
+          ].filter(Boolean)).map((img,idx)=><div key={idx} style={{textAlign:'center'}}>
+            <img src={img.src} alt={img.label} style={{width:110,height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
+            <div style={{fontSize:10,color:'#6b7280',marginTop:4,maxWidth:110}}>{img.label}</div>
+          </div>)}
+        </div>
+      </div>}
       <div style={{display:'flex',justifyContent:'flex-end'}}>
         <div style={{minWidth:230}}>
           <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,color:'#6b7280',borderBottom:'0.5px solid #e5e7eb'}}><span>Total de piezas</span><span style={{fontWeight:600,color:'#111'}}>{pcs}</span></div>
@@ -282,60 +302,9 @@ function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
   </div>;
 }
 
-// ---- QUOTE QUICK VIEW MODAL ----
-function QuoteModal({q,onClose}){
-  const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
-  const total=i=>qtyOf(i)*(Number(i.price)||0);
-  const grand=q.items.reduce((s,i)=>s+total(i),0);
-  const pcs=q.items.reduce((s,i)=>s+qtyOf(i),0);
-  return <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.45)',backdropFilter:'blur(2px)'}}/>
-    <div style={{position:'relative',background:'#fff',borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.18)',width:'min(860px,95vw)',maxHeight:'88vh',overflowY:'auto',padding:'24px 28px'}}>
-      {/* Header */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18,paddingBottom:14,borderBottom:'0.5px solid #e5e7eb'}}>
-        <div>
-          <div style={{fontSize:18,fontWeight:700,color:'#2563eb',letterSpacing:'.04em'}}>{q.quoteNum}</div>
-          <div style={{fontSize:15,fontWeight:600,marginTop:3}}>{q.client||'—'}</div>
-          <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{dStr(q.date)}{q.deliveryDate?<> · <span style={{color:'#2563eb'}}>Entrega: {dStr(q.deliveryDate)}</span></>:''}</div>
-        </div>
-        <button onClick={onClose} style={{background:'#f3f4f6',border:'none',borderRadius:8,width:32,height:32,fontSize:18,cursor:'pointer',color:'#6b7280',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:1}}>×</button>
-      </div>
-      {/* Items table */}
-      <div style={{border:'0.5px solid #e5e7eb',borderRadius:8,overflow:'hidden',marginBottom:16,overflowX:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600}}>
-          <thead><tr style={{background:'#1e3a5f'}}>
-            {['Artículo','Tela','Audiencia','Cuello',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
-          </tr></thead>
-          <tbody>{q.items.map((item,idx)=>{const qt=qtyOf(item);const t=total(item);return(
-            <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
-              <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric||'—'}</td>
-              <td style={{padding:'7px 6px',textAlign:'center'}}>{item.audience||'—'}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',color:item.collarType?'#111':'#d1d5db'}}>{item.collarType||'—'}</td>
-              {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
-              <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{qt}</td>
-              <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
-              <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
-            </tr>);})}
-          </tbody>
-        </table>
-      </div>
-      {/* Totals */}
-      <div style={{display:'flex',justifyContent:'flex-end'}}>
-        <div style={{minWidth:220}}>
-          <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,color:'#6b7280',borderBottom:'0.5px solid #e5e7eb'}}><span>Total de piezas</span><span style={{fontWeight:600,color:'#111'}}>{pcs}</span></div>
-          <div style={{display:'flex',justifyContent:'space-between',padding:'9px 0 0',fontSize:15,fontWeight:600}}><span>Total general</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span></div>
-        </div>
-      </div>
-      <div style={{marginTop:14,padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}><strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
-    </div>
-  </div>;
-}
-
 // ---- PIPELINE ----
 function Pipeline({pipeline,setPipeline}){
   const [loading,setLoading]=useState(true);
-  const [previewQ,setPreviewQ]=useState(null);
   useEffect(()=>{loadPipeline().then(d=>{if(d.length)setPipeline(d);setLoading(false);});},[]);
   const updateStatus=async(id,status)=>{
     const updated=pipeline.map(q=>q.id===id?{...q,status}:q);
@@ -357,7 +326,6 @@ function Pipeline({pipeline,setPipeline}){
   if(loading)return <div style={{textAlign:'center',padding:'3rem',color:'#6b7280',fontSize:13}}>Cargando pipeline...</div>;
 
   return <div>
-    {previewQ&&<QuoteModal q={previewQ} onClose={()=>setPreviewQ(null)}/>}
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
       <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div>      <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} sometida{pipeline.length!==1?'s':''}</div></div>
     </div>
@@ -409,7 +377,6 @@ function Pipeline({pipeline,setPipeline}){
               <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Total</div>
               <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
             </div>
-            <button onClick={()=>setPreviewQ(q)} style={{background:'#eff6ff',border:'none',borderRadius:7,padding:'5px 10px',fontSize:14,cursor:'pointer',color:'#2563eb',lineHeight:1}} title="Ver cotización">👁</button>
             <button onClick={()=>deleteCot(q.id)} style={{background:'none',border:'none',fontSize:16,color:'#d1d5db',cursor:'pointer',padding:'4px 6px',lineHeight:1}} title="Eliminar">×</button>
           </Card>;
         })}
