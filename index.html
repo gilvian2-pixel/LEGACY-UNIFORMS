@@ -21,43 +21,68 @@ button{font-family:inherit;cursor:pointer;}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useRef,useEffect}=React;
+
 const SIZES=['XS','S','M','L','XL','XXL'];
 const CATALOG=['Polo','T-Shirt / Camisa','Gorra','Jersey Femenino','Jersey Masculino','Hoodie','Pantalón Reversible','Falda','Leggings','Lycra','Medias','Sleeves','Otro'];
 const DEF={'Polo':20,'T-Shirt / Camisa':14,'Gorra':15,'Jersey Femenino':14,'Jersey Masculino':14,'Hoodie':18,'Pantalón Reversible':27,'Falda':15,'Leggings':18,'Lycra':15,'Medias':8,'Sleeves':6,'Otro':0};
 const FABRICS=['Dri-Fit','Sublimación','Algodón','Poliéster','Spandex','Mesh/Malla','French Terry','Lycra','Nylon','Otro'];
 const SPORTS=['Basketball','Fútbol','Volleyball','Baseball','Softball','Tenis','Track & Field','Natación','Ciclismo','Otro'];
-
+const COLLARS=['— No aplica —','Redondo','Cuello V','Polo/Botones','Cuello alto','Otro'];
+const AUDIENCES=['Hombre','Mujer','Niños'];
 const STATUSES=[
-  {key:'enviada',label:'Enviada a cliente',color:'#2563eb',bg:'#eff6ff'},
-  {key:'aceptada',label:'Aceptada',color:'#7c3aed',bg:'#f5f3ff'},
-  {key:'deposito',label:'Depósito cobrado',color:'#d97706',bg:'#fffbeb'},
-  {key:'entregado',label:'Entregado',color:'#059669',bg:'#ecfdf5'},
-  {key:'saldo',label:'Saldo cobrado',color:'#111',bg:'#f3f4f6'},
+  {key:'enviada',  label:'Enviada a cliente', color:'#2563eb',bg:'#eff6ff'},
+  {key:'aceptada', label:'Aceptada',           color:'#7c3aed',bg:'#f5f3ff'},
+  {key:'deposito', label:'Depósito cobrado',   color:'#d97706',bg:'#fffbeb'},
+  {key:'entregado',label:'Entregado',           color:'#059669',bg:'#ecfdf5'},
+  {key:'saldo',    label:'Saldo cobrado',       color:'#111',   bg:'#f3f4f6'},
 ];
 const statusInfo=k=>STATUSES.find(s=>s.key===k)||STATUSES[0];
 
-let _n=0;const uid=()=>++_n;
+// ── Google Sheets ──────────────────────────────────────────────────────────
+const SHEET_URL='https://script.google.com/macros/s/AKfycbz22_e2sPkrNYgAfVaAyXVp_--V5ihSUq7-0YLpHGnEnJwkcR6Or1lDV75HJSD52qSvKg/exec';
+const sendToSheet=async(entry)=>{
+  try{
+    // strip images (too large for sheets)
+    const slim={...entry,items:entry.items.map(i=>({...i,images:[]}))};
+    await fetch(SHEET_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(slim)});
+  }catch(e){console.error('Sheet:',e);}
+};
+
+// ── Local storage (GitHub Pages friendly) ─────────────────────────────────
+const LS_KEY='legacy_pipeline_v2';
+const lsLoad=()=>{try{const r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):[];}catch{return[];}};
+const lsSave=(d)=>{try{localStorage.setItem(LS_KEY,JSON.stringify(d));}catch(e){console.error(e);}};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+let _n=0; const uid=()=>++_n;
 const today=()=>new Date().toISOString().split('T')[0];
 const fmt=n=>'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const rf=(file,cb)=>{const r=new FileReader();r.onload=e=>cb(e.target.result);r.readAsDataURL(file);};
 const qtyOf=i=>SIZES.reduce((s,sz)=>s+(Number(i[sz.toLowerCase()])||0),0);
 
-const newQI=()=>({id:uid(),name:'Polo',price:20,xs:0,s:0,m:0,l:0,xl:0,xxl:0,fabric:'Dri-Fit',material:'',reversible:false,audience:'Hombre',collar:'',isSport:false,sport:'Basketball',deliveryDate:'',images:[]});
-const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',xs:0,s:0,m:0,l:0,xl:0,xxl:0,productImg:null,logo:null,placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''});
-const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
+const newQI=()=>({
+  id:uid(),name:'Polo',price:20,
+  xs:0,s:0,m:0,l:0,xl:0,xxl:0,
+  fabric:'Dri-Fit',material:'',
+  audience:'Hombre',collar:'',
+  reversible:false,isSport:false,sport:'Basketball',
+  images:[]   // [{id,src,label}]
+});
+const newOI=()=>({
+  id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',
+  xs:0,s:0,m:0,l:0,xl:0,xxl:0,
+  productImg:null,logo:null,
+  placement:'Frente pecho izquierdo',placementSize:'5 cm',notes:''
+});
+const newOrd=()=>{const n=uid();return{
+  id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,
+  client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''
+};};
 
-// ---- STORAGE ----
-const SHEET_URL='https://script.google.com/macros/s/AKfycbz22_e2sPkrNYgAfVaAyXVp_--V5ihSUq7-0YLpHGnEnJwkcR6Or1lDV75HJSD52qSvKg/exec';
-const STORE_KEY='legacy_pipeline_v2';
-const loadPipeline=async()=>{try{const raw=localStorage.getItem(STORE_KEY);return raw?JSON.parse(raw):[];}catch{return[];}};
-const savePipeline=async(data)=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}catch(e){console.error(e);}};
-const sendToSheet=async(entry)=>{try{await fetch(SHEET_URL,{method:'POST',body:JSON.stringify(entry)});}catch(e){console.error('Sheet error:',e);}};
-
-// ---- HELPERS ----
+// ── UI primitives ──────────────────────────────────────────────────────────
 const Card=({children,style={}})=><div style={{background:'#fff',borderRadius:10,border:'0.5px solid #e5e7eb',padding:'14px 16px',...style}}>{children}</div>;
 const Lbl=({c})=><div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:4,letterSpacing:'.03em'}}>{c}</div>;
-const Btn=({onClick,children,style={}})=><button onClick={onClick} style={{padding:'7px 14px',borderRadius:7,border:'0.5px solid #d1d5db',background:'#fff',fontSize:13,...style}}>{children}</button>;
-const Row=({children,gap=10,mb=10,cols})=><div style={{display:'grid',gridTemplateColumns:cols||`repeat(${React.Children.count(children)},1fr)`,gap,marginBottom:mb}}>{children}</div>;
+const Btn=({onClick,children,style={},disabled=false})=><button onClick={onClick} disabled={disabled} style={{padding:'7px 14px',borderRadius:7,border:'0.5px solid #d1d5db',background:'#fff',fontSize:13,...style}}>{children}</button>;
 const Field=({label,children})=><div><Lbl c={label}/>{children}</div>;
 
 function ImgUp({value,onChange,label}){
@@ -66,18 +91,50 @@ function ImgUp({value,onChange,label}){
     <Lbl c={label}/>
     {value
       ?<div style={{position:'relative'}}>
-        <img src={value} alt={label} style={{width:'100%',height:100,objectFit:'contain',borderRadius:7,border:'0.5px solid #e5e7eb',background:'#f9fafb',display:'block'}}/>
-        <button onClick={()=>onChange(null)} style={{position:'absolute',top:4,right:4,background:'#fff',border:'0.5px solid #d1d5db',borderRadius:5,padding:'1px 7px',fontSize:11,cursor:'pointer',color:'#6b7280',lineHeight:'18px'}}>×</button>
-      </div>
+          <img src={value} alt={label} style={{width:'100%',height:100,objectFit:'contain',borderRadius:7,border:'0.5px solid #e5e7eb',background:'#f9fafb',display:'block'}}/>
+          <button onClick={()=>onChange(null)} style={{position:'absolute',top:4,right:4,background:'#fff',border:'0.5px solid #d1d5db',borderRadius:5,padding:'1px 7px',fontSize:11,cursor:'pointer',color:'#6b7280',lineHeight:'18px'}}>×</button>
+        </div>
       :<div onClick={()=>ref.current?.click()} style={{height:100,border:'0.5px dashed #d1d5db',borderRadius:7,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',gap:5,background:'#f9fafb'}}>
-        <div style={{width:28,height:28,border:'0.5px solid #d1d5db',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#9ca3af',lineHeight:1}}>+</div>
-        <div style={{fontSize:12,color:'#9ca3af'}}>Subir imagen</div>
-      </div>}
+          <div style={{width:28,height:28,border:'0.5px solid #d1d5db',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#9ca3af'}}>+</div>
+          <div style={{fontSize:12,color:'#9ca3af'}}>Subir imagen</div>
+        </div>}
     <input ref={ref} type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)rf(f,onChange);}}/>
   </div>;
 }
 
-// ---- WORD EXPORTS ----
+// Multi-image upload strip
+function MultiImgUp({images=[],onChange}){
+  const ref=useRef();
+  const add=()=>ref.current?.click();
+  const remove=id=>onChange(images.filter(i=>i.id!==id));
+  const relabel=(id,label)=>onChange(images.map(i=>i.id===id?{...i,label}:i));
+  return <div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+      <Lbl c={`Imágenes de referencia${images.length?` (${images.length})`:''}`}/>
+      <button onClick={add} style={{fontSize:12,padding:'3px 10px',borderRadius:6,border:'0.5px dashed #2563eb',background:'#eff6ff',color:'#2563eb',cursor:'pointer'}}>+ Agregar imagen</button>
+    </div>
+    <input ref={ref} type="file" accept="image/*" multiple style={{display:'none'}}
+      onChange={e=>{
+        Array.from(e.target.files).forEach(f=>rf(f,src=>onChange([...images,{id:uid(),src,label:''}])));
+        e.target.value='';
+      }}/>
+    {images.length===0
+      ?<div onClick={add} style={{padding:'14px',border:'0.5px dashed #e5e7eb',borderRadius:8,textAlign:'center',fontSize:12,color:'#9ca3af',background:'#f9fafb',cursor:'pointer'}}>
+          Haz clic o usa el botón para subir diseños, logos o referencias
+        </div>
+      :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:8}}>
+          {images.map((img,ii)=><div key={img.id}>
+            <div style={{position:'relative'}}>
+              <img src={img.src} alt={`img-${ii}`} style={{width:'100%',height:85,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb',display:'block'}}/>
+              <button onClick={()=>remove(img.id)} style={{position:'absolute',top:3,right:3,background:'#fff',border:'0.5px solid #d1d5db',borderRadius:4,padding:'0 5px',fontSize:11,cursor:'pointer',color:'#6b7280',lineHeight:'18px'}}>×</button>
+            </div>
+            <input value={img.label} onChange={e=>relabel(img.id,e.target.value)} placeholder="Ej: logo frente" style={{marginTop:4,fontSize:11,padding:'3px 6px'}}/>
+          </div>)}
+        </div>}
+  </div>;
+}
+
+// ── Word exports ───────────────────────────────────────────────────────────
 function exportQuoteToWord({qC,qN,qD,qDD,items}){
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
   const total=i=>qtyOf(i)*(Number(i.price)||0);
@@ -87,334 +144,384 @@ function exportQuoteToWord({qC,qN,qD,qDD,items}){
       <td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:500">${item.name}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.fabric||'—'}</td>
       <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.audience||'—'}</td>
-      <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.isSport?item.sport:'—'}</td>
+      <td style="padding:7px 6px;border:1px solid #e5e7eb;text-align:center">${item.collar||'—'}</td>
       ${SIZES.map(s=>`<td style="padding:7px 5px;border:1px solid #e5e7eb;text-align:center">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}
       <td style="padding:7px 8px;border:1px solid #e5e7eb;text-align:center;font-weight:600">${qtyOf(item)}</td>
       <td style="padding:7px 8px;border:1px solid #e5e7eb;text-align:center">${fmt(item.price)}</td>
       <td style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:600;color:#2563eb">${fmt(total(item))}</td>
     </tr>`).join('');
+  const imgsHtml=items.flatMap(i=>(i.images||[]).map(img=>`
+    <div style="display:inline-block;margin:4px;text-align:center;vertical-align:top">
+      <img src="${img.src}" style="height:90px;width:auto;border:1px solid #e5e7eb;border-radius:6px;display:block"/>
+      <div style="font-size:9pt;color:#6b7280;margin-top:3px">${img.label||i.name}</div>
+    </div>`)).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"/><title>Cotización ${qN}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;width:100%;}th{background:#1e3a5f;color:#fff;padding:7px 8px;font-size:11pt;}</style></head>
+<style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;width:100%;}th{background:#1e3a5f;color:#fff;padding:7px 8px;}</style></head>
 <body>
-<table style="margin-bottom:16px;"><tr>
-  <td style="width:50%"><span style="font-size:18pt;font-weight:bold;letter-spacing:2px">LEGACY UNIFORMS</span><br/><span style="font-size:9pt;color:#6b7280">787-249-0678 · santiago.emmanuel08@gmail.com</span></td>
-  <td style="text-align:right;vertical-align:top"><div style="font-size:16pt;font-weight:bold;color:#2563eb">${qN}</div><div style="font-size:10pt;color:#6b7280;margin-top:3px">${dStr(qD)}</div></td>
+<table style="margin-bottom:16px"><tr>
+  <td><img src="logo.png" style="height:50px" onerror="this.style.display='none'"/><br/><span style="font-size:9pt;color:#6b7280">787-249-0678 · santiago.emmanuel08@gmail.com</span></td>
+  <td style="text-align:right;vertical-align:top"><div style="font-size:16pt;font-weight:bold;color:#2563eb">${qN}</div><div style="font-size:10pt;color:#6b7280">${dStr(qD)}</div></td>
 </tr></table>
-<table style="margin-bottom:16px;width:auto">
+<table style="margin-bottom:14px;width:auto">
   <tr><td style="font-size:9pt;color:#6b7280;padding-right:20px">Preparado para:</td><td style="font-size:13pt;font-weight:bold">${qC||'—'}</td></tr>
   <tr><td style="font-size:9pt;color:#6b7280">Fecha de entrega:</td><td style="font-size:11pt;font-weight:500">${dStr(qDD)}</td></tr>
 </table>
-<table style="border-collapse:collapse;width:100%;margin-bottom:16px;">
-  <thead><tr><th style="text-align:left;padding:7px 10px">Artículo</th><th>Tela</th><th>Audiencia</th><th>Deporte</th>${SIZES.map(s=>`<th>${s}</th>`).join('')}<th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th></tr></thead>
+<table style="margin-bottom:14px">
+  <thead><tr>
+    <th style="text-align:left;padding:7px 10px">Artículo</th>
+    <th>Tela</th><th>Audiencia</th><th>Cuello</th>
+    ${SIZES.map(s=>`<th>${s}</th>`).join('')}
+    <th>Cant.</th><th>P.U.</th><th style="text-align:right;padding-right:10px">Total</th>
+  </tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<table style="width:260px;margin-left:auto;border-collapse:collapse;margin-bottom:20px">
-  <tr><td style="padding:5px 10px;color:#6b7280;font-size:10pt">Total de piezas</td><td style="text-align:right;padding:5px 10px;font-weight:600">${items.reduce((s,i)=>s+qtyOf(i),0)}</td></tr>
-  <tr style="border-top:1px solid #e5e7eb"><td style="padding:9px 10px 3px;font-size:13pt;font-weight:bold">Total general</td><td style="text-align:right;padding:9px 10px 3px;font-size:14pt;font-weight:bold;color:#2563eb">${fmt(grand)}</td></tr>
+<table style="width:250px;margin-left:auto;margin-bottom:18px">
+  <tr><td style="padding:5px 10px;color:#6b7280;font-size:10pt">Total piezas</td><td style="text-align:right;font-weight:600">${items.reduce((s,i)=>s+qtyOf(i),0)}</td></tr>
+  <tr style="border-top:1px solid #e5e7eb"><td style="padding:8px 10px;font-size:13pt;font-weight:bold">Total general</td><td style="text-align:right;font-size:14pt;font-weight:bold;color:#2563eb">${fmt(grand)}</td></tr>
 </table>
-<div style="background:#f9fafb;padding:10px 12px;border-radius:6px;font-size:9pt;color:#6b7280"><b>Condiciones:</b> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
+${imgsHtml?`<div style="margin-bottom:14px"><div style="font-size:9pt;font-weight:bold;color:#6b7280;margin-bottom:6px">IMÁGENES DE REFERENCIA</div>${imgsHtml}</div>`:''}
+<div style="background:#f9fafb;padding:9px 12px;border-radius:6px;font-size:9pt;color:#6b7280"><b>Condiciones:</b> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
 </body></html>`;
-  const blob=new Blob([html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Cotizacion_${qN}.doc`;a.click();URL.revokeObjectURL(url);
+  dl(html,`Cotizacion_${qN}.doc`);
 }
 
 function exportOrderToWord(order){
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
   const pcs=order.items.reduce((s,i)=>s+qtyOf(i),0);
   const itemsHtml=order.items.map((item,idx)=>`
-    <div style="margin-bottom:24px;padding-bottom:24px;${idx<order.items.length-1?'border-bottom:1px solid #e5e7eb':''}">
-      <table style="width:100%;margin-bottom:10px"><tr>
+    <div style="margin-bottom:20px;padding-bottom:20px;${idx<order.items.length-1?'border-bottom:1px solid #e5e7eb':''}">
+      <table style="width:100%;margin-bottom:8px"><tr>
         <td style="font-size:14pt;font-weight:bold">${item.garment}${item.color?` — ${item.color}`:''}</td>
-        <td style="text-align:right;font-size:10pt;color:#6b7280">Tela: ${item.fabric||'—'}${item.material?` · ${item.material}`:''}</td>
+        <td style="text-align:right;font-size:10pt;color:#6b7280">Tela: ${item.fabric||'—'}</td>
       </tr></table>
-      <table style="border-collapse:collapse;width:100%;margin-bottom:10px">
+      <table style="border-collapse:collapse;width:100%;margin-bottom:8px">
         <thead><tr>${SIZES.map(s=>`<th style="background:#1e3a5f;color:#fff;padding:6px 8px">${s}</th>`).join('')}<th style="background:#1e3a5f;color:#fff;padding:6px 8px">Total</th></tr></thead>
         <tbody><tr style="text-align:center">${SIZES.map(s=>`<td style="padding:6px 8px;border:1px solid #e5e7eb">${Number(item[s.toLowerCase()])||'—'}</td>`).join('')}<td style="padding:6px 8px;border:1px solid #e5e7eb;font-weight:bold;color:#2563eb">${qtyOf(item)}</td></tr></tbody>
       </table>
-      ${item.notes?`<div style="padding:8px 10px;background:#f9fafb;border-radius:5px;font-size:10pt">${item.notes}</div>`:''}
+      ${item.notes?`<div style="padding:8px;background:#f9fafb;border-radius:5px;font-size:10pt">${item.notes}</div>`:''}
     </div>`).join('');
   const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"/><title>Ficha ${order.orderNum}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}table{border-collapse:collapse;}</style></head>
+<head><meta charset="utf-8"/><title>Ficha ${order.orderNum}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;color:#111;}</style></head>
 <body>
-<table style="width:100%;margin-bottom:18px"><tr>
-  <td><span style="font-size:18pt;font-weight:bold;letter-spacing:2px">LEGACY UNIFORMS</span></td>
-  <td style="text-align:right;vertical-align:top"><div style="font-size:15pt;font-weight:bold">${order.orderNum}</div><div style="font-size:12pt">${order.client||'—'}</div><div style="font-size:9pt;color:#6b7280">${dStr(order.date)}</div></td>
+<table style="width:100%;margin-bottom:16px"><tr>
+  <td><span style="font-size:18pt;font-weight:bold">LEGACY UNIFORMS</span></td>
+  <td style="text-align:right"><div style="font-size:15pt;font-weight:bold">${order.orderNum}</div><div>${order.client||'—'}</div><div style="font-size:9pt;color:#6b7280">${dStr(order.date)}</div></td>
 </tr></table>
-<hr style="border:0;border-top:1px solid #e5e7eb;margin-bottom:18px"/>
+<hr style="border:0;border-top:1px solid #e5e7eb;margin-bottom:16px"/>
 ${itemsHtml}
-<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9pt;color:#9ca3af">LEGACY Uniforms · 787-249-0678 · Total de piezas: <b>${pcs}</b></div>
+<div style="margin-top:16px;padding-top:10px;border-top:1px solid #e5e7eb;font-size:9pt;color:#9ca3af">LEGACY Uniforms · 787-249-0678 · Total piezas: <b>${pcs}</b></div>
 </body></html>`;
-  const blob=new Blob([html],{type:'application/msword'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Orden_${order.orderNum}.doc`;a.click();URL.revokeObjectURL(url);
+  dl(html,`Orden_${order.orderNum}.doc`);
 }
 
-// ---- QUOTE VIEW ----
-function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,add,del,onPrev,onExport}){
+function dl(html,name){
+  const blob=new Blob([html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
+}
+
+// ── Quote Form ─────────────────────────────────────────────────────────────
+function QuoteView({qC,setQC,qN,setQN,qD,setQD,qDD,setQDD,items,setItem,addItem,delItem,onPreview,onExport}){
   const total=i=>qtyOf(i)*(Number(i.price)||0);
   const grand=items.reduce((s,i)=>s+total(i),0);
   const pcs=items.reduce((s,i)=>s+qtyOf(i),0);
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div><div style={{fontSize:17,fontWeight:500}}>Nueva cotización</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Artículos, tallas y especificaciones</div></div>
+      <div><div style={{fontSize:17,fontWeight:500}}>Nueva Cotización</div><div style={{fontSize:12,color:'#6b7280',marginTop:2}}>Artículos, tallas y especificaciones</div></div>
       <div style={{display:'flex',gap:8}}>
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
-        <Btn onClick={onPrev} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none'}}>Ver cotización →</Btn>
+        <Btn onClick={onPreview} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none'}}>Ver cotización →</Btn>
       </div>
     </div>
+
+    {/* Header */}
     <Card style={{marginBottom:12}}>
-      <Row cols="1fr 150px 150px 150px" mb={0}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 160px 150px 160px',gap:10}}>
         <Field label="Cliente"><input value={qC} onChange={e=>setQC(e.target.value)} placeholder="Nombre del cliente"/></Field>
         <Field label="No. cotización"><input value={qN} onChange={e=>setQN(e.target.value)}/></Field>
         <Field label="Fecha"><input type="date" value={qD} onChange={e=>setQD(e.target.value)}/></Field>
         <Field label="Fecha de entrega"><input type="date" value={qDD} onChange={e=>setQDD(e.target.value)}/></Field>
-      </Row>
+      </div>
     </Card>
-    {items.map((item,idx)=><Card key={item.id} style={{marginBottom:10}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{fontWeight:500,fontSize:13,color:'#374151'}}>Artículo {idx+1}</div>
-        {items.length>1&&<button onClick={()=>del(item.id)} style={{fontSize:11,background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>Eliminar</button>}
-      </div>
-      <Row cols="180px 90px 1fr 1fr" mb={10}>
-        <Field label="Artículo"><select value={item.name} onChange={e=>setItem(item.id,'name',e.target.value)}>{CATALOG.map(c=><option key={c}>{c}</option>)}</select></Field>
-        <Field label="Precio u."><input type="number" value={item.price} onChange={e=>setItem(item.id,'price',e.target.value)} style={{textAlign:'center'}}/></Field>
-        <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setItem(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
-        <Field label="Material / detalle"><input value={item.material} onChange={e=>setItem(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster..."/></Field>
-      </Row>
-      <Row cols="140px 1fr 1fr" mb={10}>
-        <Field label="Audiencia"><select value={item.audience} onChange={e=>setItem(item.id,'audience',e.target.value)}>        {['Hombre','Mujer','Niños'].map(a=><option key={a}>{a}</option>)}</select></Field>
-        <div><Lbl c="Opciones"/><div style={{display:'flex',gap:20,marginTop:4}}>
-          <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.reversible} onChange={e=>setItem(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible</label>
-          <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}><input type="checkbox" checked={item.isSport} onChange={e=>setItem(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo</label>
-        </div></div>
-        {item.isSport&&<Field label="Deporte"><select value={item.sport} onChange={e=>setItem(item.id,'sport',e.target.value)}>{SPORTS.map(s=><option key={s}>{s}</option>)}</select></Field>}
-      </Row>
-      <div style={{marginBottom:10}}>
-        <Lbl c="Cantidades por talla"/>
-        <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'flex-end'}}>
-          {SIZES.map(s=><div key={s} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-            <div style={{fontSize:11,fontWeight:500,color:'#6b7280'}}>{s}</div>
-            <input type="number" min={0} value={item[s.toLowerCase()]} onChange={e=>setItem(item.id,s.toLowerCase(),e.target.value)} style={{width:50,textAlign:'center'}}/>
-          </div>)}
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,marginLeft:6}}>
-            <div style={{fontSize:11,fontWeight:500,color:'#6b7280'}}>Total</div>
-            <div style={{width:50,height:34,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:15,color:'#2563eb'}}>{qtyOf(item)}</div>
-          </div>
-          <div style={{marginLeft:8,fontSize:14,fontWeight:500,color:'#2563eb',paddingBottom:4}}>{fmt(total(item))}</div>
-        </div>
-      </div>
 
-      {/* Imágenes de referencia */}
-      <div style={{borderTop:'0.5px solid #f3f4f6',paddingTop:12}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <Lbl c={`Imágenes de referencia (${(item.images||[]).length})`}/>
-          <button onClick={()=>{
-            const ref=document.createElement('input');ref.type='file';ref.accept='image/*';ref.multiple=true;
-            ref.onchange=e=>{
-              const files=Array.from(e.target.files);
-              files.forEach(f=>rf(f,src=>{
-                setItem(item.id,'images',[...(item.images||[]),{id:uid(),src,label:''}]);
-              }));
-            };ref.click();
-          }} style={{fontSize:12,padding:'4px 10px',borderRadius:6,border:'0.5px dashed #2563eb',background:'#eff6ff',color:'#2563eb',cursor:'pointer'}}>
-            + Agregar imagen
-          </button>
+    {/* Items */}
+    {items.map((item,idx)=>{
+      const si=(id,f,v)=>setItem(id,f,v);
+      return <Card key={item.id} style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontWeight:500,fontSize:13,color:'#374151'}}>Artículo {idx+1}</div>
+          {items.length>1&&<button onClick={()=>delItem(item.id)} style={{fontSize:11,background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>Eliminar</button>}
         </div>
-        {(item.images||[]).length===0
-          ?<div style={{padding:'14px',border:'0.5px dashed #e5e7eb',borderRadius:8,textAlign:'center',fontSize:12,color:'#9ca3af',background:'#f9fafb'}}>
-            Haz clic en "Agregar imagen" para subir diseños, logos o referencias
+
+        {/* Row 1: Artículo, precio, tela, material */}
+        <div style={{display:'grid',gridTemplateColumns:'180px 90px 1fr 1fr',gap:10,marginBottom:10}}>
+          <Field label="Artículo">
+            <select value={item.name} onChange={e=>{si(item.id,'name',e.target.value);setItem(item.id,'price',DEF[e.target.value]??0);}}>
+              {CATALOG.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Precio u.">
+            <input type="number" value={item.price} onChange={e=>si(item.id,'price',e.target.value)} style={{textAlign:'center'}}/>
+          </Field>
+          <Field label="Tipo de tela">
+            <select value={item.fabric} onChange={e=>si(item.id,'fabric',e.target.value)}>
+              {FABRICS.map(f=><option key={f}>{f}</option>)}
+            </select>
+          </Field>
+          <Field label="Material / detalle">
+            <input value={item.material} onChange={e=>si(item.id,'material',e.target.value)} placeholder="Ej: 100% poliéster reciclado..."/>
+          </Field>
+        </div>
+
+        {/* Row 2: Audiencia, cuello, opciones */}
+        <div style={{display:'grid',gridTemplateColumns:'140px 160px 1fr',gap:10,marginBottom:10}}>
+          <Field label="Audiencia">
+            <select value={item.audience} onChange={e=>si(item.id,'audience',e.target.value)}>
+              {AUDIENCES.map(a=><option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="Tipo de cuello">
+            <select value={item.collar||''} onChange={e=>si(item.id,'collar',e.target.value)}>
+              {COLLARS.map(c=><option key={c} value={c==='— No aplica —'?'':c}>{c}</option>)}
+            </select>
+          </Field>
+          <div>
+            <Lbl c="Opciones de prenda"/>
+            <div style={{display:'flex',gap:20,marginTop:6,flexWrap:'wrap'}}>
+              <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
+                <input type="checkbox" checked={item.reversible} onChange={e=>si(item.id,'reversible',e.target.checked)} style={{width:'auto'}}/> Reversible
+              </label>
+              <label style={{display:'flex',alignItems:'center',gap:5,fontSize:13,cursor:'pointer'}}>
+                <input type="checkbox" checked={item.isSport} onChange={e=>si(item.id,'isSport',e.target.checked)} style={{width:'auto'}}/> Uniforme deportivo
+              </label>
+              {item.isSport&&<select value={item.sport} onChange={e=>si(item.id,'sport',e.target.value)} style={{width:'auto',fontSize:13}}>
+                {SPORTS.map(s=><option key={s}>{s}</option>)}
+              </select>}
+            </div>
           </div>
-          :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10}}>
-            {(item.images||[]).map((img,ii)=><div key={img.id} style={{position:'relative'}}>
-              <img src={img.src} alt={`ref-${ii}`} style={{width:'100%',height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
-              <button onClick={()=>setItem(item.id,'images',(item.images||[]).filter(x=>x.id!==img.id))}
-                style={{position:'absolute',top:4,right:4,background:'#fff',border:'0.5px solid #d1d5db',borderRadius:5,padding:'1px 6px',fontSize:11,cursor:'pointer',color:'#6b7280',lineHeight:'18px'}}>×</button>
-              <input value={img.label} onChange={e=>{const imgs=[...(item.images||[])];imgs[ii]={...img,label:e.target.value};setItem(item.id,'images',imgs);}}
-                placeholder="Etiqueta (ej: logo frente)" style={{marginTop:4,fontSize:11,padding:'3px 6px'}}/>
+        </div>
+
+        {/* Tallas */}
+        <div style={{marginBottom:14}}>
+          <Lbl c="Cantidades por talla"/>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end'}}>
+            {SIZES.map(s=><div key={s} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+              <div style={{fontSize:11,fontWeight:500,color:'#6b7280'}}>{s}</div>
+              <input type="number" min={0} value={item[s.toLowerCase()]} onChange={e=>si(item.id,s.toLowerCase(),e.target.value)} style={{width:52,textAlign:'center'}}/>
             </div>)}
-          </div>}
-      </div>
-    </Card>)}
-    <button onClick={add} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar artículo</button>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,marginLeft:4}}>
+              <div style={{fontSize:11,fontWeight:500,color:'#6b7280'}}>Total</div>
+              <div style={{width:52,height:34,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:15,color:'#2563eb'}}>{qtyOf(item)}</div>
+            </div>
+            <div style={{marginLeft:6,fontSize:14,fontWeight:500,color:'#2563eb',paddingBottom:4}}>{fmt(total(item))}</div>
+          </div>
+        </div>
+
+        {/* Multi-image upload */}
+        <div style={{borderTop:'0.5px solid #f0f0f0',paddingTop:12}}>
+          <MultiImgUp
+            images={item.images||[]}
+            onChange={imgs=>si(item.id,'images',imgs)}
+          />
+        </div>
+      </Card>;
+    })}
+
+    <button onClick={addItem} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>
+      + Agregar artículo
+    </button>
+
+    {/* Totals */}
     <div style={{display:'flex',justifyContent:'flex-end'}}>
       <div style={{background:'#fff',border:'0.5px solid #e5e7eb',borderRadius:10,padding:'12px 18px',minWidth:200}}>
-        {[['Artículos',items.length],['Piezas',pcs]].map(([l,v])=><div key={l} style={{display:'flex',justifyContent:'space-between',gap:40,fontSize:12,color:'#6b7280',marginBottom:6}}><span>{l}</span><span style={{fontWeight:500,color:'#111'}}>{v}</span></div>)}
-        <div style={{borderTop:'0.5px solid #e5e7eb',paddingTop:8,display:'flex',justifyContent:'space-between',fontSize:15,fontWeight:500}}><span>Total</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span></div>
+        {[['Artículos',items.length],['Piezas',pcs]].map(([l,v])=>
+          <div key={l} style={{display:'flex',justifyContent:'space-between',gap:40,fontSize:12,color:'#6b7280',marginBottom:6}}>
+            <span>{l}</span><span style={{fontWeight:500,color:'#111'}}>{v}</span>
+          </div>)}
+        <div style={{borderTop:'0.5px solid #e5e7eb',paddingTop:8,display:'flex',justifyContent:'space-between',fontSize:15,fontWeight:500}}>
+          <span>Total</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span>
+        </div>
       </div>
     </div>
   </div>;
 }
 
-// ---- QUOTE PREVIEW ----
-function QuotePrev({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
+// ── Quote Preview ──────────────────────────────────────────────────────────
+function QuotePreview({qC,qN,qD,qDD,items,onBack,onExport,onSubmit,submitted}){
   const total=i=>qtyOf(i)*(Number(i.price)||0);
   const grand=items.reduce((s,i)=>s+total(i),0);
   const pcs=items.reduce((s,i)=>s+qtyOf(i),0);
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
+  const allImgs=items.flatMap(i=>(i.images||[]).map(img=>({...img,itemName:i.name})));
   return <div>
     <div className="no-print" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
       <Btn onClick={onBack}>← Editar</Btn>
       <div style={{display:'flex',gap:8}}>
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
         <Btn onClick={()=>window.print()} style={{fontWeight:500}}>Imprimir / PDF</Btn>
-        <Btn onClick={onSubmit} style={{background:submitted?'#f3f4f6':'#1e3a5f',color:submitted?'#9ca3af':'#fff',fontWeight:600,border:'none',opacity:submitted?.7:1}} disabled={submitted}>
+        <Btn onClick={onSubmit} disabled={submitted}
+          style={{background:submitted?'#f3f4f6':'#1e3a5f',color:submitted?'#9ca3af':'#fff',fontWeight:600,border:'none'}}>
           {submitted?'✓ Cotización sometida':'📋 Someter cotización'}
         </Btn>
       </div>
     </div>
     <Card>
+      {/* Header */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',paddingBottom:14,borderBottom:'0.5px solid #e5e7eb',marginBottom:14}}>
         <div>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-            <img src="logo.png" alt="Legacy Uniforms" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{height:48,width:'auto',objectFit:'contain'}}/>
-            <div style={{width:32,height:32,background:'#1e3a5f',borderRadius:7,display:'none',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,color:'#fff'}}>L</div>
-          </div>
-          <div style={{fontSize:11,color:'#6b7280'}}>787-249-0678  ·  santiago.emmanuel08@gmail.com</div>
+          <img src="logo.png" alt="Legacy" onError={e=>{e.target.style.display='none';}} style={{height:44,marginBottom:4,display:'block'}}/>
+          <div style={{fontSize:11,color:'#6b7280'}}>787-249-0678 · santiago.emmanuel08@gmail.com</div>
         </div>
         <div style={{textAlign:'right'}}>
-          <div style={{fontSize:17,fontWeight:700,color:'#2563eb'}}>{qN}</div>
+          <div style={{fontSize:18,fontWeight:700,color:'#2563eb'}}>{qN}</div>
           <div style={{fontSize:11,color:'#6b7280',marginTop:3}}>{dStr(qD)}</div>
         </div>
       </div>
+
+      {/* Client info */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
         <div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Preparado para</div><div style={{fontSize:15,fontWeight:600}}>{qC||'—'}</div></div>
         <div><div style={{fontSize:11,color:'#6b7280',marginBottom:2}}>Fecha de entrega</div><div style={{fontSize:14,fontWeight:600,color:'#2563eb'}}>{dStr(qDD)}</div></div>
       </div>
+
+      {/* Table */}
       <div style={{border:'0.5px solid #e5e7eb',borderRadius:8,overflow:'hidden',marginBottom:14,overflowX:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:700}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:750}}>
           <thead><tr style={{background:'#1e3a5f'}}>
-            {['Artículo','Tela','Audiencia','Deporte',...SIZES,'Cant.','P.U.','Total'].map(h=><th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
+            {['Artículo','Tela','Audiencia','Cuello',...SIZES,'Cant.','P.U.','Total'].map(h=>
+              <th key={h} style={{padding:'7px 8px',textAlign:h==='Artículo'?'left':h==='Total'?'right':'center',fontWeight:500,fontSize:11,color:'#fff',whiteSpace:'nowrap'}}>{h}</th>)}
           </tr></thead>
-          <tbody>{items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
-            <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
-              <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>{item.name}{item.reversible?<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>:''}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.fabric}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',whiteSpace:'nowrap'}}>{item.audience}</td>
-              <td style={{padding:'7px 6px',textAlign:'center',color:item.isSport?'#111':'#d1d5db'}}>{item.isSport?item.sport:'—'}</td>
-              {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
-              <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
-              <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
-              <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
-            </tr>);})}
+          <tbody>
+            {items.map((item,idx)=>{const q=qtyOf(item);const t=total(item);return(
+              <tr key={item.id} style={{borderTop:'0.5px solid #e5e7eb',background:idx%2?'#f9fafb':'#fff'}}>
+                <td style={{padding:'7px 10px',fontWeight:500,whiteSpace:'nowrap'}}>
+                  {item.name}
+                  {item.reversible&&<span style={{fontSize:10,background:'#eff6ff',color:'#2563eb',padding:'1px 5px',borderRadius:4,marginLeft:5}}>REV</span>}
+                </td>
+                <td style={{padding:'7px 6px',textAlign:'center'}}>{item.fabric}</td>
+                <td style={{padding:'7px 6px',textAlign:'center'}}>{item.audience}</td>
+                <td style={{padding:'7px 6px',textAlign:'center',color:item.collar?'#111':'#d1d5db'}}>{item.collar||'—'}</td>
+                {SIZES.map(s=><td key={s} style={{padding:'7px 5px',textAlign:'center',color:Number(item[s.toLowerCase()])>0?'#111':'#d1d5db'}}>{Number(item[s.toLowerCase()])||'—'}</td>)}
+                <td style={{padding:'7px 8px',textAlign:'center',fontWeight:600}}>{q}</td>
+                <td style={{padding:'7px 8px',textAlign:'center',color:'#6b7280'}}>{fmt(item.price)}</td>
+                <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#2563eb'}}>{fmt(t)}</td>
+              </tr>);})}
           </tbody>
         </table>
       </div>
-      {/* Imágenes de referencia en preview */}
-      {items.some(i=>(i.images||[]).length>0)&&<div style={{marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:500,color:'#6b7280',marginBottom:8,letterSpacing:'.03em'}}>IMÁGENES DE REFERENCIA</div>
+
+      {/* Totals */}
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
+        <div style={{minWidth:230}}>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,color:'#6b7280',borderBottom:'0.5px solid #e5e7eb'}}>
+            <span>Total de piezas</span><span style={{fontWeight:600,color:'#111'}}>{pcs}</span>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'9px 0 0',fontSize:15,fontWeight:600}}>
+            <span>Total general</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Reference images */}
+      {allImgs.length>0&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:600,color:'#6b7280',marginBottom:8,letterSpacing:'.04em'}}>IMÁGENES DE REFERENCIA</div>
         <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-          {items.flatMap(i=>(i.images||[]).map(img=>({...img,itemName:i.name}))).map((img,idx)=><div key={idx} style={{textAlign:'center'}}>
+          {allImgs.map((img,idx)=><div key={idx} style={{textAlign:'center'}}>
             <img src={img.src} alt={img.label||idx} style={{width:110,height:90,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:8,background:'#f9fafb',display:'block'}}/>
             <div style={{fontSize:10,color:'#6b7280',marginTop:4,maxWidth:110}}>{img.label||img.itemName}</div>
           </div>)}
         </div>
       </div>}
-      <div style={{display:'flex',justifyContent:'flex-end'}}>
-        <div style={{minWidth:230}}>
-          <div style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,color:'#6b7280',borderBottom:'0.5px solid #e5e7eb'}}><span>Total de piezas</span><span style={{fontWeight:600,color:'#111'}}>{pcs}</span></div>
-          <div style={{display:'flex',justifyContent:'space-between',padding:'9px 0 0',fontSize:15,fontWeight:600}}><span>Total general</span><span style={{color:'#2563eb',fontSize:17}}>{fmt(grand)}</span></div>
-        </div>
+
+      <div style={{padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}>
+        <strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU
       </div>
-      <div style={{marginTop:16,padding:'9px 12px',background:'#f9fafb',borderRadius:8,fontSize:11,color:'#6b7280'}}><strong>Condiciones:</strong> Precios por unidad · Cotización válida 30 días · No incluye IVU</div>
     </Card>
   </div>;
 }
 
-// ---- PIPELINE ----
+// ── Pipeline ───────────────────────────────────────────────────────────────
 function Pipeline({pipeline,setPipeline}){
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{loadPipeline().then(d=>{if(d.length)setPipeline(d);setLoading(false);});},[]);
-  const updateStatus=async(id,status)=>{
-    const updated=pipeline.map(q=>q.id===id?{...q,status}:q);
-    setPipeline(updated);await savePipeline(updated);
-  };
-  const deleteCot=async(id)=>{
-    const updated=pipeline.filter(q=>q.id!==id);
-    setPipeline(updated);await savePipeline(updated);
-  };
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'—';
   const grand=items=>items.reduce((s,i)=>s+qtyOf(i)*(Number(i.price)||0),0);
-
-  // Summary totals
-  const totals=STATUSES.reduce((acc,s)=>{
-    acc[s.key]=pipeline.filter(q=>q.status===s.key).reduce((sum,q)=>sum+grand(q.items),0);
-    return acc;
-  },{});
-
-  if(loading)return <div style={{textAlign:'center',padding:'3rem',color:'#6b7280',fontSize:13}}>Cargando pipeline...</div>;
+  const updateStatus=(id,status)=>{const u=pipeline.map(q=>q.id===id?{...q,status}:q);setPipeline(u);lsSave(u);};
+  const del=(id)=>{const u=pipeline.filter(q=>q.id!==id);setPipeline(u);lsSave(u);};
+  const totals=STATUSES.reduce((acc,s)=>{acc[s.key]=pipeline.filter(q=>q.status===s.key).reduce((sum,q)=>sum+grand(q.items),0);return acc;},{});
 
   return <div>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-      <div><div style={{fontSize:17,fontWeight:500}}>Pipeline de cotizaciones</div>      <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''} sometida{pipeline.length!==1?'s':''}</div></div>
+      <div>
+        <div style={{fontSize:17,fontWeight:500}}>Cotizaciones sometidas</div>
+        <div style={{fontSize:12,color:'#6b7280',marginTop:2}}>{pipeline.length} cotización{pipeline.length!==1?'es':''}</div>
+      </div>
     </div>
 
-    {/* Status summary cards */}
+    {/* Status summary */}
     <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:8,marginBottom:16}}>
-      {STATUSES.map(s=>{
-        const count=pipeline.filter(q=>q.status===s.key).length;
-        return <div key={s.key} style={{background:s.bg,border:`0.5px solid ${s.color}22`,borderRadius:10,padding:'10px 12px'}}>
+      {STATUSES.map(s=>{const count=pipeline.filter(q=>q.status===s.key).length;return(
+        <div key={s.key} style={{background:s.bg,border:`0.5px solid ${s.color}33`,borderRadius:10,padding:'10px 12px'}}>
           <div style={{fontSize:10,fontWeight:600,color:s.color,marginBottom:4,letterSpacing:'.03em'}}>{s.label.toUpperCase()}</div>
           <div style={{fontSize:18,fontWeight:700,color:s.color}}>{count}</div>
           <div style={{fontSize:11,color:s.color,opacity:.8,marginTop:2}}>{fmt(totals[s.key])}</div>
-        </div>;
-      })}
+        </div>);})}
     </div>
 
     {pipeline.length===0
-      ?<Card style={{textAlign:'center',padding:'2.5rem 2rem'}}>
-        <div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay cotizaciones en el pipeline</div>
-        <div style={{fontSize:12,color:'#9ca3af'}}>Crea una cotización y presiona "Someter al pipeline"</div>
-      </Card>
-      :<div style={{display:'flex',flexDirection:'column',gap:10}}>
-        {pipeline.map(q=>{
-          const si=statusInfo(q.status);
-          const pcs=q.items.reduce((s,i)=>s+qtyOf(i),0);
-          return <Card key={q.id} style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
-            {/* Status badge */}
-            <div style={{minWidth:130}}>
-              <div style={{fontSize:10,color:'#6b7280',marginBottom:4}}>Estado</div>
-              <select value={q.status} onChange={e=>updateStatus(q.id,e.target.value)}
-                style={{fontSize:11,fontWeight:600,color:si.color,background:si.bg,border:`0.5px solid ${si.color}44`,borderRadius:6,padding:'4px 8px',width:'auto',cursor:'pointer'}}>
-                {STATUSES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
-            </div>
-            {/* Info */}
-            <div style={{flex:1,minWidth:140}}>
-              <div style={{fontWeight:600,fontSize:14}}>{q.client||'Sin cliente'}</div>
-              <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{q.quoteNum} · {dStr(q.date)}</div>
-            </div>
-            {q.deliveryDate&&<div style={{minWidth:100}}>
-              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Entrega</div>
-              <div style={{fontSize:12,fontWeight:500,color:'#2563eb'}}>{dStr(q.deliveryDate)}</div>
-            </div>}
-            <div style={{minWidth:70,textAlign:'right'}}>
-              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Piezas</div>
-              <div style={{fontSize:13,fontWeight:600}}>{pcs}</div>
-            </div>
-            <div style={{minWidth:90,textAlign:'right'}}>
-              <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Total</div>
-              <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
-            </div>
-            <button onClick={()=>deleteCot(q.id)} style={{background:'none',border:'none',fontSize:16,color:'#d1d5db',cursor:'pointer',padding:'4px 6px',lineHeight:1}} title="Eliminar">×</button>
-          </Card>;
-        })}
-      </div>}
+      ?<Card style={{textAlign:'center',padding:'2.5rem'}}>
+          <div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay cotizaciones sometidas aún</div>
+          <div style={{fontSize:12,color:'#9ca3af'}}>Crea una cotización y presiona "Someter cotización"</div>
+        </Card>
+      :<div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {pipeline.map(q=>{
+            const si=statusInfo(q.status);
+            const pcs=q.items.reduce((s,i)=>s+qtyOf(i),0);
+            return <Card key={q.id} style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+              <div style={{minWidth:140}}>
+                <div style={{fontSize:10,color:'#6b7280',marginBottom:4}}>Estado</div>
+                <select value={q.status} onChange={e=>updateStatus(q.id,e.target.value)}
+                  style={{fontSize:11,fontWeight:600,color:si.color,background:si.bg,border:`0.5px solid ${si.color}55`,borderRadius:6,padding:'4px 8px',width:'auto',cursor:'pointer'}}>
+                  {STATUSES.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+              </div>
+              <div style={{flex:1,minWidth:140}}>
+                <div style={{fontWeight:600,fontSize:14}}>{q.client||'Sin cliente'}</div>
+                <div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{q.quoteNum} · {dStr(q.date)}</div>
+              </div>
+              {q.deliveryDate&&<div style={{minWidth:100}}>
+                <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Entrega</div>
+                <div style={{fontSize:12,fontWeight:500,color:'#2563eb'}}>{dStr(q.deliveryDate)}</div>
+              </div>}
+              <div style={{minWidth:60,textAlign:'right'}}>
+                <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Piezas</div>
+                <div style={{fontSize:13,fontWeight:600}}>{pcs}</div>
+              </div>
+              <div style={{minWidth:90,textAlign:'right'}}>
+                <div style={{fontSize:10,color:'#6b7280',marginBottom:2}}>Total</div>
+                <div style={{fontSize:14,fontWeight:700,color:'#2563eb'}}>{fmt(grand(q.items))}</div>
+              </div>
+              <button onClick={()=>del(q.id)} style={{background:'none',border:'none',fontSize:18,color:'#d1d5db',cursor:'pointer',padding:'4px 6px'}} title="Eliminar">×</button>
+            </Card>;
+          })}
+        </div>}
 
     {/* Revenue summary */}
     {pipeline.length>0&&<div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
       <Card style={{padding:'12px 18px',minWidth:220}}>
-        <div style={{fontSize:11,color:'#6b7280',marginBottom:6,fontWeight:500}}>RESUMEN GENERAL</div>
+        <div style={{fontSize:11,color:'#6b7280',marginBottom:8,fontWeight:600,letterSpacing:'.03em'}}>RESUMEN GENERAL</div>
         {[
-          ['Total cotizado',pipeline.reduce((s,q)=>s+grand(q.items),0),'#6b7280'],
-          ['Total aceptado',['aceptada','deposito','entregado','saldo'].reduce((s,k)=>s+totals[k],0),'#7c3aed'],
-          ['Total cobrado',['deposito','saldo'].reduce((s,k)=>s+totals[k],0),'#059669'],
-        ].map(([l,v,c])=><div key={l} style={{display:'flex',justifyContent:'space-between',gap:30,fontSize:12,marginBottom:5}}><span style={{color:'#6b7280'}}>{l}</span><span style={{fontWeight:600,color:c}}>{fmt(v)}</span></div>)}
+          ['Total cotizado',   pipeline.reduce((s,q)=>s+grand(q.items),0),'#6b7280'],
+          ['Total aceptado',   ['aceptada','deposito','entregado','saldo'].reduce((s,k)=>s+totals[k],0),'#7c3aed'],
+          ['Total cobrado',    ['deposito','saldo'].reduce((s,k)=>s+totals[k],0),'#059669'],
+        ].map(([l,v,c])=><div key={l} style={{display:'flex',justifyContent:'space-between',gap:30,fontSize:12,marginBottom:6}}>
+          <span style={{color:'#6b7280'}}>{l}</span><span style={{fontWeight:600,color:c}}>{fmt(v)}</span>
+        </div>)}
       </Card>
     </div>}
   </div>;
 }
 
-// ---- LOGISTICS ----
+// ── Logistics ──────────────────────────────────────────────────────────────
 function LogList({orders,onNew,onEdit,onDel,onView}){
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{month:'short',day:'numeric',year:'numeric'}):'Sin fecha';
   return <div>
@@ -423,17 +530,17 @@ function LogList({orders,onNew,onEdit,onDel,onView}){
       <Btn onClick={onNew} style={{background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none'}}>+ Nueva orden</Btn>
     </div>
     {orders.length===0
-      ?<Card style={{textAlign:'center',padding:'2.5rem 2rem'}}><div style={{fontSize:14,color:'#6b7280',marginBottom:6}}>No hay órdenes creadas</div></Card>
+      ?<Card style={{textAlign:'center',padding:'2.5rem'}}><div style={{fontSize:14,color:'#6b7280'}}>No hay órdenes creadas</div></Card>
       :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
         {orders.map(o=>{const pcs=o.items.reduce((s,i)=>s+qtyOf(i),0);return(
           <Card key={o.id} style={{display:'flex',flexDirection:'column',gap:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
               <div><div style={{fontWeight:500,fontSize:14}}>{o.client||'Sin cliente'}</div><div style={{fontSize:11,color:'#6b7280',marginTop:2}}>{o.orderNum}</div></div>
               <div style={{fontSize:11,background:'#f3f4f6',color:'#6b7280',padding:'3px 8px',borderRadius:6}}>{dStr(o.date)}</div>
             </div>
-            {o.deliveryDate&&<div style={{fontSize:11,background:'#eff6ff',color:'#2563eb',padding:'3px 8px',borderRadius:5,display:'inline-block',width:'fit-content'}}>Entrega: {dStr(o.deliveryDate)}</div>}
+            {o.deliveryDate&&<div style={{fontSize:11,background:'#eff6ff',color:'#2563eb',padding:'3px 8px',borderRadius:5,width:'fit-content'}}>Entrega: {dStr(o.deliveryDate)}</div>}
             <div style={{fontSize:12,color:'#6b7280'}}>{o.items.length} artículo{o.items.length!==1?'s':''} · {pcs} piezas</div>
-            <div style={{display:'flex',gap:6,marginTop:2}}>
+            <div style={{display:'flex',gap:6}}>
               <Btn onClick={()=>onView(o)} style={{flex:1,background:'#eff6ff',color:'#2563eb',fontWeight:500,border:'none',textAlign:'center'}}>Ver ficha</Btn>
               <Btn onClick={()=>onEdit(o)} style={{flex:1,textAlign:'center'}}>Editar</Btn>
               <Btn onClick={()=>onDel(o.id)} style={{padding:'7px 10px',color:'#9ca3af'}}>×</Btn>
@@ -452,27 +559,27 @@ function OrderForm({order,setCO,onSave,onCancel}){
       <Btn onClick={onSave} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>Guardar orden</Btn>
     </div>
     <Card style={{marginBottom:12}}>
-      <Row cols="1fr 170px 150px 160px" mb={0}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 170px 150px 160px',gap:10}}>
         <Field label="Cliente"><input value={order.client} onChange={e=>set('client',e.target.value)} placeholder="Nombre del cliente"/></Field>
         <Field label="No. de orden"><input value={order.orderNum} onChange={e=>set('orderNum',e.target.value)}/></Field>
         <Field label="Fecha"><input type="date" value={order.date} onChange={e=>set('date',e.target.value)}/></Field>
         <Field label="Fecha de entrega"><input type="date" value={order.deliveryDate} onChange={e=>set('deliveryDate',e.target.value)}/></Field>
-      </Row>
+      </div>
     </Card>
     {order.items.map((item,idx)=><Card key={item.id} style={{marginBottom:12}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontWeight:500,fontSize:14}}>Artículo {idx+1}</div>
         {order.items.length>1&&<button onClick={()=>setCO(p=>({...p,items:p.items.filter(i=>i.id!==item.id)}))} style={{fontSize:11,background:'none',border:'none',cursor:'pointer',color:'#9ca3af'}}>Eliminar</button>}
       </div>
-      <Row cols="1fr 1fr 1fr" mb={10}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
         <Field label="Tipo de prenda"><select value={item.garment} onChange={e=>setI(item.id,'garment',e.target.value)}>{CATALOG.map(c=><option key={c}>{c}</option>)}</select></Field>
         <Field label="Color"><input value={item.color} onChange={e=>setI(item.id,'color',e.target.value)} placeholder="Ej: Negro, Rojo..."/></Field>
         <Field label="Tipo de tela"><select value={item.fabric} onChange={e=>setI(item.id,'fabric',e.target.value)}>{FABRICS.map(f=><option key={f}>{f}</option>)}</select></Field>
-      </Row>
-      <Row cols="1fr 1fr" mb={10}>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
         <ImgUp value={item.productImg} onChange={v=>setI(item.id,'productImg',v)} label="Imagen del producto"/>
         <ImgUp value={item.logo} onChange={v=>setI(item.id,'logo',v)} label="Logo / diseño"/>
-      </Row>
+      </div>
       <div style={{marginBottom:10}}>
         <Lbl c="Cantidades por talla"/>
         <div style={{display:'flex',gap:7,flexWrap:'wrap',alignItems:'flex-end'}}>
@@ -486,18 +593,18 @@ function OrderForm({order,setCO,onSave,onCancel}){
           </div>
         </div>
       </div>
-      <Row cols="1fr 140px" mb={10}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 140px',gap:10,marginBottom:10}}>
         <Field label="Ubicación del logo"><input value={item.placement} onChange={e=>setI(item.id,'placement',e.target.value)} placeholder="Ej: Frente pecho izquierdo"/></Field>
         <Field label="Tamaño del logo"><input value={item.placementSize} onChange={e=>setI(item.id,'placementSize',e.target.value)} placeholder="Ej: 5 cm"/></Field>
-      </Row>
+      </div>
       <Field label="Instrucciones especiales"><textarea value={item.notes} onChange={e=>setI(item.id,'notes',e.target.value)} placeholder="Ej: Logo bordado, hilo dorado..." rows={2} style={{resize:'vertical'}}/></Field>
     </Card>)}
-    <button onClick={()=>setCO(p=>({...p,items:[...p.items,newOI()]}))} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar otro artículo</button>
+    <button onClick={()=>setCO(p=>({...p,items:[...p.items,newOI()]}))} style={{width:'100%',padding:'9px',borderRadius:10,border:'0.5px dashed #d1d5db',background:'none',fontSize:12,color:'#6b7280',cursor:'pointer',marginBottom:12}}>+ Agregar artículo</button>
     <Card><Field label="Notas generales"><textarea value={order.notes} onChange={e=>setCO(p=>({...p,notes:e.target.value}))} rows={3} style={{resize:'vertical'}}/></Field></Card>
   </div>;
 }
 
-function OrderPrev({order,onBack,onExport}){
+function OrderPreview({order,onBack,onExport}){
   const pcs=order.items.reduce((s,i)=>s+qtyOf(i),0);
   const dStr=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-PR',{year:'numeric',month:'long',day:'numeric'}):'—';
   return <div>
@@ -505,21 +612,18 @@ function OrderPrev({order,onBack,onExport}){
       <Btn onClick={onBack}>← Volver</Btn>
       <div style={{display:'flex',gap:8}}>
         <Btn onClick={onExport} style={{background:'#f0fdf4',color:'#16a34a',fontWeight:500,border:'none'}}>⬇ Exportar Word</Btn>
-        <Btn onClick={()=>window.print()} style={{fontWeight:500}}>Imprimir / PDF</Btn>
+        <Btn onClick={()=>window.print()}>Imprimir / PDF</Btn>
       </div>
     </div>
     <Card>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',paddingBottom:14,borderBottom:'0.5px solid #e5e7eb',marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',paddingBottom:14,borderBottom:'0.5px solid #e5e7eb',marginBottom:14}}>
         <div>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-            <div style={{width:32,height:32,background:'#1e3a5f',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:14,color:'#fff'}}>L</div>
-            <div style={{fontSize:17,fontWeight:700,letterSpacing:'.07em'}}>LEGACY UNIFORMS</div>
-          </div>
+          <img src="logo.png" alt="Legacy" onError={e=>{e.target.style.display='none';}} style={{height:40,marginBottom:4,display:'block'}}/>
           <div style={{fontSize:11,color:'#6b7280'}}>Ficha técnica de producción</div>
         </div>
         <div style={{textAlign:'right'}}>
           <div style={{fontSize:16,fontWeight:700}}>{order.orderNum}</div>
-          <div style={{fontSize:14,fontWeight:500,marginTop:2}}>{order.client||'—'}</div>
+          <div style={{fontSize:14,fontWeight:500}}>{order.client||'—'}</div>
         </div>
       </div>
       {order.items.map((item,idx)=><div key={item.id} style={{marginBottom:idx<order.items.length-1?20:0,paddingBottom:idx<order.items.length-1?20:0,borderBottom:idx<order.items.length-1?'0.5px solid #e5e7eb':'none'}}>
@@ -527,7 +631,8 @@ function OrderPrev({order,onBack,onExport}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,width:196,flexShrink:0}}>
             {['productImg','logo'].map((field,fi)=><div key={field}>
               <div style={{fontSize:11,color:'#6b7280',marginBottom:3}}>{fi===0?'Producto':'Logo'}</div>
-              {item[field]?<img src={item[field]} alt={field} style={{width:'100%',height:88,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb'}}/>
+              {item[field]
+                ?<img src={item[field]} alt={field} style={{width:'100%',height:88,objectFit:'contain',border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb'}}/>
                 :<div style={{width:'100%',height:88,border:'0.5px solid #e5e7eb',borderRadius:7,background:'#f9fafb',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#d1d5db'}}>Sin imagen</div>}
             </div>)}
           </div>
@@ -549,41 +654,46 @@ function OrderPrev({order,onBack,onExport}){
       </div>)}
       <div style={{marginTop:16,paddingTop:12,borderTop:'0.5px solid #e5e7eb',display:'flex',justifyContent:'space-between',fontSize:11,color:'#9ca3af'}}>
         <span>LEGACY Uniforms · 787-249-0678</span>
-        <span>Total de piezas: <strong style={{color:'#111'}}>{pcs}</strong></span>
+        <span>Total piezas: <strong style={{color:'#111'}}>{pcs}</strong></span>
       </div>
     </Card>
   </div>;
 }
 
-// ---- APP ROOT ----
+// ── App Root ───────────────────────────────────────────────────────────────
 function App(){
   const [view,setView]=useState('quote');
-  const [qC,setQC]=useState('');const [qN,setQN]=useState('COT-2026-001');
-  const [qD,setQD]=useState(today());const [qDD,setQDD]=useState('');
+  const [qC,setQC]=useState('');
+  const [qN,setQN]=useState('COT-2026-001');
+  const [qD,setQD]=useState(today());
+  const [qDD,setQDD]=useState('');
   const [qItems,setQItems]=useState([newQI()]);
   const [submitted,setSubmitted]=useState(false);
-  const [orders,setOrders]=useState([]);const [curOrd,setCurOrd]=useState(null);
-  const [pipeline,setPipeline]=useState([]);
+  const [pipeline,setPipeline]=useState(()=>lsLoad());
+  const [orders,setOrders]=useState([]);
+  const [curOrd,setCurOrd]=useState(null);
 
-  const setQItem=(id,f,v)=>setQItems(p=>p.map(i=>{if(i.id!==id)return i;const u={...i,[f]:v};if(f==='name')u.price=DEF[v]??0;return u;}));
-  const saveOrd=()=>{if(!curOrd)return;setOrders(p=>{const idx=p.findIndex(o=>o.id===curOrd.id);if(idx>=0){const n=[...p];n[idx]=curOrd;return n;}return[...p,curOrd];});setView('logistics');setCurOrd(null);};
-
+  const setQItem=(id,f,v)=>setQItems(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
+  const addItem=()=>{setQItems(p=>[...p,newQI()]);setSubmitted(false);};
+  const delItem=(id)=>{setQItems(p=>p.filter(i=>i.id!==id));setSubmitted(false);};
+  const saveOrd=()=>{
+    if(!curOrd)return;
+    setOrders(p=>{const idx=p.findIndex(o=>o.id===curOrd.id);if(idx>=0){const n=[...p];n[idx]=curOrd;return n;}return[...p,curOrd];});
+    setView('logistics');setCurOrd(null);
+  };
   const submitToPipeline=async()=>{
     const entry={id:uid(),quoteNum:qN,client:qC,date:qD,deliveryDate:qDD,items:qItems,status:'enviada',submittedAt:new Date().toISOString()};
     const updated=[...pipeline,entry];
-    setPipeline(updated);
-    await savePipeline(updated);
-    await sendToSheet(entry);   // → Google Sheets
+    setPipeline(updated);lsSave(updated);
+    await sendToSheet(entry);
     setSubmitted(true);
   };
 
-  const exportQuote=()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems});
-  const exportOrd=()=>{if(curOrd)exportOrderToWord(curOrd);};
-
+  const activeTab=view==='quote-prev'?'quote':['order-form','order-prev'].includes(view)?'logistics':view;
   const tabs=[['quote','Nueva Cotización'],['pipeline','Cotizaciones'],['logistics','Logística']];
-  const activeTab=view==='quote-prev'?'quote':view==='order-form'||view==='order-prev'?'logistics':view;
 
   return <div style={{fontFamily:'system-ui,-apple-system,sans-serif',color:'#111',minHeight:600,background:'#f5f5f4'}}>
+    {/* Navbar */}
     <div className="no-print" style={{background:'#fff',borderBottom:'0.5px solid #e5e7eb',padding:'0 16px',display:'flex',alignItems:'center',justifyContent:'space-between',height:50,position:'sticky',top:0,zIndex:10}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
         <img src="logo.png" alt="Legacy" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex';}} style={{height:34,width:'auto',objectFit:'contain'}}/>
@@ -595,22 +705,35 @@ function App(){
       </div>
       <nav style={{display:'flex',gap:4}}>
         {tabs.map(([v,label])=>{const active=activeTab===v;return(
-          <button key={v} onClick={()=>{setView(v);}} style={{padding:'5px 13px',borderRadius:7,border:'0.5px solid',borderColor:active?'#9ca3af':'#e5e7eb',background:active?'#f3f4f6':'transparent',fontSize:12,fontWeight:active?500:400,cursor:'pointer',color:active?'#111':'#6b7280',position:'relative'}}>
+          <button key={v} onClick={()=>setView(v)} style={{padding:'5px 13px',borderRadius:7,border:'0.5px solid',borderColor:active?'#9ca3af':'#e5e7eb',background:active?'#f3f4f6':'transparent',fontSize:12,fontWeight:active?500:400,cursor:'pointer',color:active?'#111':'#6b7280',position:'relative'}}>
             {label}
             {v==='pipeline'&&pipeline.length>0&&<span style={{position:'absolute',top:-4,right:-4,background:'#2563eb',color:'#fff',fontSize:9,fontWeight:700,borderRadius:10,padding:'1px 5px',minWidth:14,textAlign:'center'}}>{pipeline.length}</span>}
           </button>);})}
       </nav>
     </div>
+
+    {/* Content */}
     <div style={{maxWidth:960,margin:'0 auto',padding:14}}>
-      {view==='quote'&&<QuoteView qC={qC} setQC={setQC} qN={qN} setQN={setQN} qD={qD} setQD={setQD} qDD={qDD} setQDD={setQDD} items={qItems} setItem={setQItem} add={()=>{setQItems(p=>[...p,newQI()]);setSubmitted(false);}} del={id=>{setQItems(p=>p.filter(i=>i.id!==id));setSubmitted(false);}} onPrev={()=>setView('quote-prev')} onExport={exportQuote}/>}
-      {view==='quote-prev'&&<QuotePrev qC={qC} qN={qN} qD={qD} qDD={qDD} items={qItems} onBack={()=>setView('quote')} onExport={exportQuote} onSubmit={submitToPipeline} submitted={submitted}/>}
-      {view==='pipeline'&&<Pipeline pipeline={pipeline} setPipeline={setPipeline}/>}
-      {view==='logistics'&&<LogList orders={orders} onNew={()=>{setCurOrd(newOrd());setView('order-form');}} onEdit={o=>{setCurOrd(JSON.parse(JSON.stringify(o)));setView('order-form');}} onDel={id=>setOrders(p=>p.filter(o=>o.id!==id))} onView={o=>{setCurOrd(o);setView('order-prev');}}/>}
-      {view==='order-form'&&curOrd&&<OrderForm order={curOrd} setCO={setCurOrd} onSave={saveOrd} onCancel={()=>{setView('logistics');setCurOrd(null);}}/>}
-      {view==='order-prev'&&curOrd&&<OrderPrev order={curOrd} onBack={()=>setView('logistics')} onExport={exportOrd}/>}
+      {view==='quote'&&
+        <QuoteView qC={qC} setQC={setQC} qN={qN} setQN={setQN} qD={qD} setQD={setQD} qDD={qDD} setQDD={setQDD}
+          items={qItems} setItem={setQItem} addItem={addItem} delItem={delItem}
+          onPreview={()=>setView('quote-prev')} onExport={()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems})}/>}
+      {view==='quote-prev'&&
+        <QuotePreview qC={qC} qN={qN} qD={qD} qDD={qDD} items={qItems}
+          onBack={()=>setView('quote')} onExport={()=>exportQuoteToWord({qC,qN,qD,qDD,items:qItems})}
+          onSubmit={submitToPipeline} submitted={submitted}/>}
+      {view==='pipeline'&&
+        <Pipeline pipeline={pipeline} setPipeline={setPipeline}/>}
+      {view==='logistics'&&
+        <LogList orders={orders} onNew={()=>{setCurOrd(newOrd());setView('order-form');}} onEdit={o=>{setCurOrd(JSON.parse(JSON.stringify(o)));setView('order-form');}} onDel={id=>setOrders(p=>p.filter(o=>o.id!==id))} onView={o=>{setCurOrd(o);setView('order-prev');}}/>}
+      {view==='order-form'&&curOrd&&
+        <OrderForm order={curOrd} setCO={setCurOrd} onSave={saveOrd} onCancel={()=>{setView('logistics');setCurOrd(null);}}/>}
+      {view==='order-prev'&&curOrd&&
+        <OrderPreview order={curOrd} onBack={()=>setView('logistics')} onExport={()=>exportOrderToWord(curOrd)}/>}
     </div>
   </div>;
 }
+
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
