@@ -47,9 +47,11 @@ const newOI=()=>({id:uid(),garment:'Polo',color:'',fabric:'Dri-Fit',material:'',
 const newOrd=()=>{const n=uid();return{id:n,orderNum:`ORD-${new Date().getFullYear()}-${String(n).padStart(3,'0')}`,client:'',date:today(),deliveryDate:'',items:[newOI()],notes:''};};
 
 // ---- STORAGE ----
-const STORE_KEY='legacy_pipeline';
-const loadPipeline=async()=>{try{const r=await window.storage.get(STORE_KEY);return r?JSON.parse(r.value):[];}catch{return[];}};
-const savePipeline=async(data)=>{try{await window.storage.set(STORE_KEY,JSON.stringify(data));}catch(e){console.error(e);}};
+const SHEET_URL='https://script.google.com/macros/s/AKfycbz22_e2sPkrNYgAfVaAyXVp_--V5ihSUq7-0YLpHGnEnJwkcR6Or1lDV75HJSD52qSvKg/exec';
+const STORE_KEY='legacy_pipeline_v2';
+const loadPipeline=async()=>{try{const raw=localStorage.getItem(STORE_KEY);return raw?JSON.parse(raw):[];}catch{return[];}};
+const savePipeline=async(data)=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(data));}catch(e){console.error(e);}};
+const sendToSheet=async(entry)=>{try{await fetch(SHEET_URL,{method:'POST',body:JSON.stringify(entry)});}catch(e){console.error('Sheet error:',e);}};
 
 // ---- HELPERS ----
 const Card=({children,style={}})=><div style={{background:'#fff',borderRadius:10,border:'0.5px solid #e5e7eb',padding:'14px 16px',...style}}>{children}</div>;
@@ -571,6 +573,7 @@ function App(){
     const updated=[...pipeline,entry];
     setPipeline(updated);
     await savePipeline(updated);
+    await sendToSheet(entry);   // → Google Sheets
     setSubmitted(true);
   };
 
